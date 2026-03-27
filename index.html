@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>레버리지 리스크패리티 매매 대시보드</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+  :root {
+    --bg:#0a0e1a;--card:#111827;--card-border:#1e2a3a;--text:#e2e8f0;--text-dim:#64748b;
+    --accent:#3b82f6;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--purple:#8b5cf6;--gold:#eab308;--cyan:#06b6d4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+  .header{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:1px solid var(--card-border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+  .header h1{font-size:19px;font-weight:700;background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .header-right{display:flex;align-items:center;gap:14px}
+  .phase-badge{padding:5px 18px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:1px;animation:pulse 2s ease-in-out infinite}
+  .phase-bull{background:rgba(16,185,129,.15);color:var(--green);border:1px solid var(--green)}
+  .phase-sideways{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid var(--orange)}
+  .phase-bear{background:rgba(239,68,68,.15);color:var(--red);border:1px solid var(--red)}
+  .phase-bear-l2{background:rgba(239,68,68,.25);color:#ff6b6b;border:1px solid #ff6b6b}
+  .phase-bear-l3{background:rgba(239,68,68,.4);color:#ff4444;border:2px solid #ff4444}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+  .last-update{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+  .data-source{font-size:10px;color:var(--accent);margin-left:8px;text-decoration:none;border:1px solid var(--accent);padding:2px 8px;border-radius:10px}
+  .data-source:hover{background:var(--accent);color:white}
+
+  .main-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 22px;max-width:1600px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--purple))}
+  .card-title{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .card-title .gf-link{font-size:9px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,130,246,.3);padding:1px 6px;border-radius:8px;font-weight:400;letter-spacing:0}
+  .card-title .gf-link:hover{background:rgba(59,130,246,.15)}
+  .full-width{grid-column:1/-1}
+
+  .criteria-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .criteria-item{background:rgba(255,255,255,.03);border-radius:8px;padding:12px;text-align:center;border:1px solid var(--card-border);transition:all .3s}
+  .criteria-item.active{border-color:var(--green);background:rgba(16,185,129,.08)}
+  .criteria-item.warn{border-color:var(--orange);background:rgba(245,158,11,.08)}
+  .criteria-item.danger{border-color:var(--red);background:rgba(239,68,68,.08)}
+  .criteria-label{font-size:11px;color:var(--text-dim);margin-bottom:6px}
+  .criteria-value{font-size:22px;font-weight:900;font-family:'JetBrains Mono',monospace}
+  .criteria-sub{font-size:10px;color:var(--text-dim);margin-top:2px;font-family:'JetBrains Mono',monospace}
+  .criteria-status{font-size:11px;margin-top:4px;font-weight:700}
+  .status-ok{color:var(--green)}.status-warn{color:var(--orange)}.status-danger{color:var(--red)}
+  .loading-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .alloc-table{width:100%;border-collapse:collapse;font-size:12px}
+  .alloc-table th{padding:8px 6px;text-align:center;font-size:11px;font-weight:700;color:var(--text-dim);border-bottom:1px solid var(--card-border);letter-spacing:.5px}
+  .alloc-table td{padding:8px 6px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .alloc-table tr:hover{background:rgba(255,255,255,.03)}
+  .alloc-table .row-active{background:rgba(59,130,246,.12);border-left:3px solid var(--accent)}
+  .alloc-table .phase-label{text-align:left;font-weight:700;font-family:'Noto Sans KR',sans-serif;font-size:12px;padding-left:10px}
+  .cell-zero{color:#374151}
+
+  .action-phases{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .action-card{border-radius:8px;padding:12px 10px;border:1px solid var(--card-border);cursor:pointer;transition:all .3s}
+  .action-card:hover{transform:translateY(-2px)}
+  .action-card.selected{border-width:2px}
+  .action-card-bull{background:rgba(16,185,129,.06)}.action-card-bull.selected{border-color:var(--green);box-shadow:0 0 20px rgba(16,185,129,.2)}
+  .action-card-sideways{background:rgba(245,158,11,.06)}.action-card-sideways.selected{border-color:var(--orange);box-shadow:0 0 20px rgba(245,158,11,.2)}
+  .action-card-bear1{background:rgba(239,68,68,.04)}.action-card-bear1.selected{border-color:#f87171;box-shadow:0 0 20px rgba(239,68,68,.15)}
+  .action-card-bear2{background:rgba(239,68,68,.08)}.action-card-bear2.selected{border-color:var(--red);box-shadow:0 0 20px rgba(239,68,68,.2)}
+  .action-card-bear3{background:rgba(239,68,68,.12)}.action-card-bear3.selected{border-color:#dc2626;box-shadow:0 0 20px rgba(239,68,68,.3)}
+  .action-card-title{font-size:12px;font-weight:700;margin-bottom:4px}
+  .action-card-cond{font-size:10px;color:var(--text-dim);line-height:1.4}
+
+  .detail-panel{margin-top:12px;background:rgba(255,255,255,.02);border:1px solid var(--card-border);border-radius:10px;padding:16px;display:none}
+  .detail-panel.show{display:block;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .detail-section h4{font-size:11px;color:var(--accent);font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase}
+  .detail-section ul{list-style:none;font-size:12px;line-height:2}
+  .detail-section li::before{content:'▸ ';color:var(--accent)}
+
+  .principles-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .principle-item{background:rgba(255,255,255,.03);border-radius:8px;padding:12px;border:1px solid var(--card-border)}
+  .principle-num{font-size:20px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+  .principle-title{font-size:12px;font-weight:700;margin-bottom:4px}
+  .principle-desc{font-size:11px;color:var(--text-dim);line-height:1.5}
+
+  .alloc-bar-container{margin-top:12px}
+  .alloc-bar-row{display:flex;align-items:center;margin-bottom:6px}
+  .alloc-bar-label{width:80px;font-size:11px;color:var(--text-dim);font-weight:500;text-align:right;padding-right:10px}
+  .alloc-bar-track{flex:1;height:22px;background:rgba(255,255,255,.04);border-radius:4px;display:flex;overflow:hidden}
+  .alloc-segment{height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:width .5s ease}
+  .seg-upro{background:#3b82f6;color:#fff}.seg-tqqq{background:#6366f1;color:#fff}.seg-tmf{background:#06b6d4;color:#fff}
+  .seg-ief{background:#0891b2;color:#fff}
+  .seg-ugl{background:#eab308;color:#000}.seg-gld{background:#ca8a04;color:#fff}.seg-bil{background:#6b7280;color:#fff}
+  .legend-row{display:flex;gap:12px;margin-top:8px;justify-content:center}
+  .legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-dim)}
+  .legend-dot{width:10px;height:10px;border-radius:2px}
+
+  .recovery-box{margin-top:10px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.8}
+  .recovery-box strong{color:var(--accent)}
+
+  .etf-prices-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+  .etf-price-card{background:rgba(255,255,255,.03);border:1px solid var(--card-border);border-radius:8px;padding:10px;text-align:center}
+  .etf-price-card .etf-sym{font-size:12px;font-weight:700;margin-bottom:2px}
+  .etf-price-card .etf-price{font-size:16px;font-weight:900;font-family:'JetBrains Mono',monospace}
+  .etf-price-card .etf-chg{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:2px}
+  .etf-price-card .etf-name-sub{font-size:9px;color:var(--text-dim)}
+  .chg-up{color:var(--green)}.chg-dn{color:var(--red)}.chg-flat{color:var(--text-dim)}
+
+  .sma-detail-box{margin-top:10px;background:rgba(255,255,255,.02);border:1px solid var(--card-border);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--text-dim);line-height:1.8;font-family:'JetBrains Mono',monospace}
+  .sma-above{color:var(--green);font-weight:700}
+  .sma-below{color:var(--red);font-weight:700}
+
+  .rebal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .rebal-card{background:rgba(255,255,255,.03);border:1px solid var(--card-border);border-radius:8px;padding:10px;text-align:center}
+  .rebal-card .rebal-title{font-size:11px;font-weight:700;margin-bottom:4px;color:var(--accent)}
+  .rebal-card .rebal-desc{font-size:10px;color:var(--text-dim);line-height:1.5}
+
+  @media(max-width:1200px){
+    .main-grid{grid-template-columns:1fr}
+    .action-phases{grid-template-columns:repeat(3,1fr)}
+    .principles-grid{grid-template-columns:repeat(2,1fr)}
+    .detail-grid{grid-template-columns:1fr}
+    .etf-prices-grid{grid-template-columns:repeat(4,1fr)}
+    .criteria-grid{grid-template-columns:1fr}
+    .rebal-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>레버리지 리스크패리티 매매 대시보드</h1>
+  <div class="header-right">
+    <div class="phase-badge phase-bull" id="phaseBadge">▲ 판별중...</div>
+    <a class="data-source" href="https://www.google.com/finance/" target="_blank">Google Finance</a>
+    <div class="last-update" id="lastUpdate"><span class="loading-spinner"></span> 데이터 로딩중...</div>
+  </div>
+</div>
+
+<div class="main-grid">
+
+  <!-- 국면 판별 지표 (3열: S&P500 현재가 | SMA200 위치 | VIX) -->
+  <div class="card full-width">
+    <div class="card-title">시장 국면 판별 지표 (VIX + SMA200 결합)
+      <a class="gf-link" href="https://www.google.com/finance/quote/.INX:INDEXSP" target="_blank">S&P500 →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/VIX:INDEXCBOE" target="_blank">VIX →</a>
+    </div>
+    <div class="criteria-grid">
+      <div class="criteria-item" id="crit-price">
+        <div class="criteria-label">S&P 500 현재가</div>
+        <div class="criteria-value" id="spPrice"><span class="loading-spinner"></span></div>
+        <div class="criteria-status" id="spStatus">로딩중...</div>
+      </div>
+      <div class="criteria-item" id="crit-sma">
+        <div class="criteria-label">SMA200 위치 판별</div>
+        <div class="criteria-value" id="smaPosition"><span class="loading-spinner"></span></div>
+        <div class="criteria-sub" id="smaDetail">SMA200 계산중...</div>
+        <div class="criteria-status" id="smaStatus">로딩중...</div>
+      </div>
+      <div class="criteria-item" id="crit-vix">
+        <div class="criteria-label">VIX 공포지수</div>
+        <div class="criteria-value" id="vixValue"><span class="loading-spinner"></span></div>
+        <div class="criteria-sub" id="vixRange">—</div>
+        <div class="criteria-status" id="vixStatus">로딩중...</div>
+      </div>
+    </div>
+    <div class="sma-detail-box" id="smaDetailBox">SMA200 데이터 로딩중...</div>
+  </div>
+
+  <!-- ETF 실시간 가격 -->
+  <div class="card full-width">
+    <div class="card-title">포트폴리오 ETF 실시간 가격
+      <a class="gf-link" href="https://www.google.com/finance/quote/UPRO:NYSEARCA" target="_blank">UPRO →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/TQQQ:NASDAQ" target="_blank">TQQQ →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/TMF:NYSEARCA" target="_blank">TMF →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/IEF:NASDAQ" target="_blank">IEF →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/UGL:NYSEARCA" target="_blank">UGL →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/GLD:NYSEARCA" target="_blank">GLD →</a>
+      <a class="gf-link" href="https://www.google.com/finance/quote/BIL:NYSEARCA" target="_blank">BIL →</a>
+    </div>
+    <div class="etf-prices-grid" id="etfPrices">
+      <div class="etf-price-card"><div class="etf-sym" style="color:#3b82f6">UPRO</div><div class="etf-name-sub">S&P 500 3x</div><div class="etf-price" id="p-UPRO">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#6366f1">TQQQ</div><div class="etf-name-sub">Nasdaq 3x</div><div class="etf-price" id="p-TQQQ">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#06b6d4">TMF</div><div class="etf-name-sub">국채 20Y+ 3x</div><div class="etf-price" id="p-TMF">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#0891b2">IEF</div><div class="etf-name-sub">국채 7-10Y</div><div class="etf-price" id="p-IEF">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#eab308">UGL</div><div class="etf-name-sub">금 2x</div><div class="etf-price" id="p-UGL">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#ca8a04">GLD</div><div class="etf-name-sub">금 1x</div><div class="etf-price" id="p-GLD">—</div></div>
+      <div class="etf-price-card"><div class="etf-sym" style="color:#6b7280">BIL</div><div class="etf-name-sub">단기국채</div><div class="etf-price" id="p-BIL">—</div></div>
+    </div>
+  </div>
+
+  <!-- 리밸런싱 주기 -->
+  <div class="card full-width">
+    <div class="card-title">리밸런싱 트리거 규칙</div>
+    <div class="rebal-grid">
+      <div class="rebal-card">
+        <div class="rebal-title">정기 리밸런싱</div>
+        <div class="rebal-desc">매월 첫 거래일<br>비중 ±5%p 이상 이탈 시 조정</div>
+      </div>
+      <div class="rebal-card">
+        <div class="rebal-title">비정기 — 국면 악화</div>
+        <div class="rebal-desc">VIX 3일 연속 임계값 돌파<br>또는 SMA200 5일 연속 하회 시<br><strong style="color:var(--red)">즉시 실행</strong></div>
+      </div>
+      <div class="rebal-card">
+        <div class="rebal-title">비정기 — 국면 호전</div>
+        <div class="rebal-desc">VIX 3일 연속 임계값 하회<br>또는 SMA200 5일 연속 상회 시<br><strong style="color:var(--green)">1주 대기 후 실행</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 매매 원칙 -->
+  <div class="card full-width">
+    <div class="card-title">핵심 매매 원칙</div>
+    <div class="principles-grid">
+      <div class="principle-item">
+        <div class="principle-num">01</div>
+        <div class="principle-title">규칙 100% 준수</div>
+        <div class="principle-desc">감정적 판단 절대 금지. VIX와 SMA200 숫자에만 의존. 한 번의 이탈이 복구 불가능한 손실로 이어짐</div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-num">02</div>
+        <div class="principle-title">레버리지 비중 제한</div>
+        <div class="principle-desc">전체 투자금의 30% 이하로 이 전략에 배분. 나머지 70%는 코어새틀라이트 등 안전 전략 병행</div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-num">03</div>
+        <div class="principle-title">단계적 진입/퇴장</div>
+        <div class="principle-desc">한 번에 전량 매수/매도 금지. 국면 전환 시 2개월에 걸쳐 50% → 100% 단계적 전환</div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-num">04</div>
+        <div class="principle-title">현금은 탄약</div>
+        <div class="principle-desc">횡보/하락장에서 BIL에 축적된 현금이 반등 시 저가 매수의 원천. 현금 보유 = 전략적 판단</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 국면별 비중 테이블 -->
+  <div class="card full-width">
+    <div class="card-title">시장 국면별 자산 배분표 &amp; 매매 행동</div>
+    <table class="alloc-table">
+      <thead>
+        <tr>
+          <th style="width:130px">국면</th>
+          <th style="width:100px">조건</th>
+          <th><span style="color:#3b82f6;font-weight:700">UPRO</span><br><span style="font-size:9px;color:#64748b">S&P 3x</span></th>
+          <th><span style="color:#6366f1;font-weight:700">TQQQ</span><br><span style="font-size:9px;color:#64748b">NDX 3x</span></th>
+          <th><span style="color:#06b6d4;font-weight:700">TMF</span><br><span style="font-size:9px;color:#64748b">국채 3x</span></th>
+          <th><span style="color:#0891b2;font-weight:700">IEF</span><br><span style="font-size:9px;color:#64748b">국채 7-10Y</span></th>
+          <th><span style="color:#eab308;font-weight:700">UGL</span><br><span style="font-size:9px;color:#64748b">금 2x</span></th>
+          <th><span style="color:#ca8a04;font-weight:700">GLD</span><br><span style="font-size:9px;color:#64748b">금 1x</span></th>
+          <th><span style="color:#6b7280;font-weight:700">BIL</span><br><span style="font-size:9px;color:#64748b">단기국채</span></th>
+          <th style="width:120px">적립금 배분</th>
+          <th style="width:80px">주요 행동</th>
+        </tr>
+      </thead>
+      <tbody id="allocBody"></tbody>
+    </table>
+    <div class="alloc-bar-container" id="allocBars"></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>UPRO</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>TQQQ</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>TMF</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div>IEF</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>UGL</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ca8a04"></div>GLD</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6b7280"></div>BIL</div>
+    </div>
+  </div>
+
+  <!-- 국면별 상세 행동 -->
+  <div class="card full-width">
+    <div class="card-title">국면 선택 → 상세 매매 가이드</div>
+    <div class="action-phases">
+      <div class="action-card action-card-bull selected" onclick="showDetail('bull')">
+        <div class="action-card-title" style="color:var(--green)">▲ 상승장</div>
+        <div class="action-card-cond">VIX &lt; 20<br>가격 &gt; SMA200</div>
+      </div>
+      <div class="action-card action-card-sideways" onclick="showDetail('sideways')">
+        <div class="action-card-title" style="color:var(--orange)">◆ 횡보장</div>
+        <div class="action-card-cond">VIX 20~25<br>또는 SMA200 근접</div>
+      </div>
+      <div class="action-card action-card-bear1" onclick="showDetail('bear1')">
+        <div class="action-card-title" style="color:#f87171">▼ 하락 Lv.1</div>
+        <div class="action-card-cond">VIX 25~35<br>가격 &lt; SMA200</div>
+      </div>
+      <div class="action-card action-card-bear2" onclick="showDetail('bear2')">
+        <div class="action-card-title" style="color:var(--red)">▼ 하락 Lv.2</div>
+        <div class="action-card-cond">VIX 35~45<br>가격 &lt; SMA200</div>
+      </div>
+      <div class="action-card action-card-bear3" onclick="showDetail('bear3')">
+        <div class="action-card-title" style="color:#dc2626">▼ 하락 Lv.3</div>
+        <div class="action-card-cond">VIX &gt; 45<br>극단 공포</div>
+      </div>
+    </div>
+    <div class="detail-panel show" id="detailPanel"></div>
+    <div class="recovery-box">
+      <strong>복귀 규칙:</strong> VIX &lt; 20 + S&P 500 &gt; SMA200 확인 후 → 1개월차: 목표 비중의 50%까지 복원 → 2개월차: 100% 복원. 급격한 재진입 금지 (더블딥 위험).
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===========================
+// CORS 프록시 설정 및 데이터 페칭
+// ===========================
+const PROXIES = [
+  { wrap: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, json: true },
+  { wrap: url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, json: false },
+  { wrap: url => `https://corsproxy.io/?${encodeURIComponent(url)}`, json: false }
+];
+
+async function fetchViaProxy(url) {
+  for (const p of PROXIES) {
+    try {
+      const resp = await fetch(p.wrap(url), { signal: AbortSignal.timeout(18000) });
+      if (!resp.ok) continue;
+      if (p.json) {
+        const j = await resp.json();
+        return j.contents || null;
+      }
+      return await resp.text();
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+// Yahoo Finance CORS 프록시 경유 (일별 종가 + SMA200 계산용)
+async function fetchYahooViaProxy(ticker, range) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range || '1y'}`;
+  const text = await fetchViaProxy(url);
+  if (!text) return null;
+  try {
+    const data = JSON.parse(text);
+    const result = data.chart.result[0];
+    const closes = result.indicators.quote[0].close.filter(v => v != null);
+    if (closes.length < 2) return null;
+    const price = closes[closes.length - 1];
+    const prevPrice = closes[closes.length - 2];
+    return {
+      price: Math.round(price * 100) / 100,
+      change: {
+        val: Math.round((price - prevPrice) * 100) / 100,
+        pct: Math.round((price - prevPrice) / prevPrice * 10000) / 100
+      },
+      closes,
+      timestamps: result.timestamp
+    };
+  } catch(e) { return null; }
+}
+
+// Google Finance HTML 파싱
+async function fetchGoogleFinance(ticker) {
+  const url = `https://www.google.com/finance/quote/${ticker}`;
+  const html = await fetchViaProxy(url);
+  if (!html) return null;
+
+  let price = null, changePct = null, changeVal = null;
+
+  // data-last-price 속성
+  const dlpM = html.match(/data-last-price="([0-9,.]+)"/);
+  if (dlpM) {
+    const v = parseFloat(dlpM[1].replace(/,/g, ''));
+    if (v > 0 && v < 1000000) price = v;
+  }
+
+  // data-change-percent, data-change 속성
+  const dcpM = html.match(/data-change-percent="(-?[0-9,.]+)"/);
+  if (dcpM) changePct = parseFloat(dcpM[1]);
+  const dcvM = html.match(/data-change="(-?[0-9,.]+)"/);
+  if (dcvM) changeVal = parseFloat(dcvM[1]);
+
+  // YMlKec 클래스 폴백 (가격)
+  if (!price) {
+    const ymM = html.match(/class="YMlKec[^"]*"[^>]*>([0-9,.]+)/);
+    if (ymM) {
+      const v = parseFloat(ymM[1].replace(/,/g, ''));
+      if (v > 0 && v < 1000000) price = v;
+    }
+  }
+
+  if (!price) return null;
+
+  return { price, change: { pct: changePct || 0, val: changeVal || 0 } };
+}
+
+// Yahoo Finance v8 API (개별 ETF용 — 단일 종목)
+async function fetchYahooSingle(ticker) {
+  // v8 chart API
+  const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+  const text1 = await fetchViaProxy(url1);
+  if (text1) {
+    try {
+      const data = JSON.parse(text1);
+      const result = data.chart.result[0];
+      const meta = result.meta;
+      const closes = result.indicators.quote[0].close.filter(v => v != null);
+      if (closes.length >= 2) {
+        const price = closes[closes.length - 1];
+        const prev = meta.chartPreviousClose || closes[closes.length - 2];
+        return {
+          price: Math.round(price * 100) / 100,
+          change: {
+            val: Math.round((price - prev) * 100) / 100,
+            pct: Math.round((price - prev) / prev * 10000) / 100
+          }
+        };
+      }
+    } catch(e) {}
+  }
+
+  // v6 quote API 폴백
+  const url2 = `https://query1.finance.yahoo.com/v6/finance/quote?symbols=${encodeURIComponent(ticker)}`;
+  const text2 = await fetchViaProxy(url2);
+  if (text2) {
+    try {
+      const data = JSON.parse(text2);
+      const q = data.quoteResponse.result[0];
+      if (q && q.regularMarketPrice) {
+        return {
+          price: Math.round(q.regularMarketPrice * 100) / 100,
+          change: {
+            val: Math.round((q.regularMarketChange || 0) * 100) / 100,
+            pct: Math.round((q.regularMarketChangePercent || 0) * 100) / 100
+          }
+        };
+      }
+    } catch(e) {}
+  }
+
+  return null;
+}
+
+// ===========================
+// SMA200 계산 로직 (다중 폴백 + 캐싱)
+// ===========================
+let sma200Data = { sma200: null, currentPrice: null, aboveSMA: null, gapPercent: null, consecutiveDaysBelow: 0 };
+let sma200Cache = { data: null, timestamp: 0 };
+const SMA_CACHE_TTL = 5 * 60 * 1000; // 5분 캐시
+
+// Yahoo Finance 직접 호출 (프록시별 개별 시도)
+async function fetchYahooHistorical(ticker, range) {
+  const urls = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`
+  ];
+  for (const url of urls) {
+    for (const p of PROXIES) {
+      try {
+        const resp = await fetch(p.wrap(url), { signal: AbortSignal.timeout(20000) });
+        if (!resp.ok) continue;
+        let text;
+        if (p.json) {
+          const j = await resp.json();
+          text = j.contents;
+        } else {
+          text = await resp.text();
+        }
+        if (!text) continue;
+        const data = JSON.parse(text);
+        const result = data.chart.result[0];
+        const closes = result.indicators.quote[0].close.filter(v => v != null);
+        if (closes.length >= 200) return closes;
+      } catch(e) { continue; }
+    }
+  }
+  return null;
+}
+
+async function calculateSMA200() {
+  // 캐시 유효하면 바로 반환
+  if (sma200Cache.data && (Date.now() - sma200Cache.timestamp < SMA_CACHE_TTL)) {
+    sma200Data = sma200Cache.data;
+    return sma200Data;
+  }
+
+  // 시도 1: ^GSPC 1년
+  let closes = await fetchYahooHistorical('^GSPC', '1y');
+
+  // 시도 2: ^GSPC 2년
+  if (!closes || closes.length < 200) {
+    closes = await fetchYahooHistorical('^GSPC', '2y');
+  }
+
+  // 시도 3: SPY로 대체 (S&P 500 추종 ETF, 거의 동일 움직임)
+  if (!closes || closes.length < 200) {
+    closes = await fetchYahooHistorical('SPY', '1y');
+  }
+
+  // 시도 4: SPY 2년
+  if (!closes || closes.length < 200) {
+    closes = await fetchYahooHistorical('SPY', '2y');
+  }
+
+  if (!closes || closes.length < 200) {
+    // 모든 시도 실패 — 이전 캐시가 있으면 그것이라도 사용 (만료되었더라도)
+    if (sma200Cache.data) {
+      sma200Data = sma200Cache.data;
+      sma200Data._stale = true; // 오래된 데이터 표시
+      return sma200Data;
+    }
+    return null;
+  }
+
+  const result = computeSMA(closes);
+  if (result) {
+    sma200Cache = { data: result, timestamp: Date.now() };
+  }
+  return result;
+}
+
+function computeSMA(closes) {
+  if (closes.length < 200) return null;
+
+  // 최근 200일 종가로 SMA200 계산
+  const last200 = closes.slice(-200);
+  const sma200 = last200.reduce((a, b) => a + b, 0) / 200;
+  const currentPrice = closes[closes.length - 1];
+  const gapPercent = ((currentPrice - sma200) / sma200) * 100;
+
+  // 최근 며칠간 연속으로 SMA200 아래인지 계산
+  let consecutiveDaysBelow = 0;
+  for (let i = closes.length - 1; i >= Math.max(0, closes.length - 30); i--) {
+    // 해당 시점의 SMA200 근사값 (전체 기간에서 200일 슬라이딩)
+    if (i < 200) break;
+    const localSMA = closes.slice(i - 200, i).reduce((a, b) => a + b, 0) / 200;
+    if (closes[i] < localSMA) {
+      consecutiveDaysBelow++;
+    } else {
+      break;
+    }
+  }
+
+  // 최근 며칠간 연속으로 SMA200 위인지 계산
+  let consecutiveDaysAbove = 0;
+  for (let i = closes.length - 1; i >= Math.max(0, closes.length - 30); i--) {
+    if (i < 200) break;
+    const localSMA = closes.slice(i - 200, i).reduce((a, b) => a + b, 0) / 200;
+    if (closes[i] >= localSMA) {
+      consecutiveDaysAbove++;
+    } else {
+      break;
+    }
+  }
+
+  sma200Data = {
+    sma200: Math.round(sma200 * 100) / 100,
+    currentPrice: Math.round(currentPrice * 100) / 100,
+    aboveSMA: currentPrice >= sma200,
+    gapPercent: Math.round(gapPercent * 100) / 100,
+    consecutiveDaysBelow,
+    consecutiveDaysAbove
+  };
+
+  return sma200Data;
+}
+
+// ===========================
+// VIX + SMA200 결합 국면 판별
+// ===========================
+function determinePhase(vix, smaInfo) {
+  // 1차 판별: VIX 기준
+  let vixPhase = 'bull';
+  if (!vix) vix = 0;
+  if (vix > 45) vixPhase = 'bear3';
+  else if (vix > 35) vixPhase = 'bear2';
+  else if (vix > 25) vixPhase = 'bear1';
+  else if (vix > 20) vixPhase = 'sideways';
+
+  // SMA200 데이터 없으면 VIX 단독
+  if (!smaInfo || smaInfo.aboveSMA === null) {
+    return { phase: vixPhase, method: 'VIX 단독 (SMA200 데이터 없음)', vixPhase, smaAdjust: 'N/A' };
+  }
+
+  const phaseOrder = ['bull', 'sideways', 'bear1', 'bear2', 'bear3'];
+  let idx = phaseOrder.indexOf(vixPhase);
+  let smaAdjust = '없음';
+
+  // 2차 조정: SMA200 위치에 따른 보정
+  if (smaInfo.aboveSMA && smaInfo.consecutiveDaysAbove >= 5) {
+    // SMA200 위에서 5일 이상 → 1단계 완화 (방어 해제)
+    if (idx > 0) {
+      idx--;
+      smaAdjust = '1단계 완화 (SMA200 상회 ' + smaInfo.consecutiveDaysAbove + '일)';
+    } else {
+      smaAdjust = '상승장 유지 (SMA200 상회)';
+    }
+  } else if (!smaInfo.aboveSMA && smaInfo.consecutiveDaysBelow >= 5) {
+    // SMA200 아래에서 5일 이상 → 1단계 강화 (방어 강화)
+    if (idx < phaseOrder.length - 1) {
+      idx++;
+      smaAdjust = '1단계 강화 (SMA200 하회 ' + smaInfo.consecutiveDaysBelow + '일)';
+    } else {
+      smaAdjust = '극단 하락 유지 (SMA200 하회)';
+    }
+  } else if (!smaInfo.aboveSMA && smaInfo.consecutiveDaysBelow >= 1) {
+    // SMA200 아래이지만 5일 미만 → 상승장이면 횡보로 조정
+    if (vixPhase === 'bull') {
+      idx = 1;
+      smaAdjust = '주의 전환 (SMA200 하회 ' + smaInfo.consecutiveDaysBelow + '일, 확인 대기)';
+    } else {
+      smaAdjust = 'VIX 국면 유지 (SMA200 하회 확인 대기)';
+    }
+  } else {
+    smaAdjust = 'SMA200 상회 중 (변동 없음)';
+  }
+
+  return {
+    phase: phaseOrder[idx],
+    method: 'VIX + SMA200 결합',
+    vixPhase,
+    smaAdjust
+  };
+}
+
+// ===========================
+// 데이터 로딩
+// ===========================
+let marketData = {};
+
+const GF_MAP = {
+  SP500: '.INX:INDEXSP', VIX: 'VIX:INDEXCBOE',
+  UPRO: 'UPRO:NYSEARCA', TQQQ: 'TQQQ:NASDAQ', TMF: 'TMF:NYSEARCA',
+  IEF: 'IEF:NASDAQ', UGL: 'UGL:NYSEARCA', GLD: 'GLD:NYSEARCA', BIL: 'BIL:NYSEARCA'
+};
+const YF_MAP = {
+  SP500: '^GSPC', VIX: '^VIX',
+  UPRO: 'UPRO', TQQQ: 'TQQQ', TMF: 'TMF', IEF: 'IEF',
+  UGL: 'UGL', GLD: 'GLD', BIL: 'BIL'
+};
+
+const ALL_KEYS = ['SP500', 'VIX', 'UPRO', 'TQQQ', 'TMF', 'IEF', 'UGL', 'GLD', 'BIL'];
+const ETF_KEYS = ['UPRO', 'TQQQ', 'TMF', 'IEF', 'UGL', 'GLD', 'BIL'];
+
+async function loadAllData() {
+  let gfCount = 0, yfCount = 0;
+
+  // 1단계: SMA200 계산 + Google Finance 전체를 병렬 실행
+  const [smaResult, ...gfResults] = await Promise.all([
+    calculateSMA200(),
+    ...ALL_KEYS.map(k => fetchGoogleFinance(GF_MAP[k]))
+  ]);
+
+  const gfData = {};
+  ALL_KEYS.forEach((k, i) => { gfData[k] = gfResults[i]; if (gfResults[i]) gfCount++; });
+
+  // 2단계: Google Finance 실패한 항목 → Yahoo v8 chart API 개별 폴백
+  const needYahoo = ALL_KEYS.filter(k => !gfData[k]);
+  const yfData = {};
+  if (needYahoo.length > 0) {
+    const yfResults = await Promise.all(needYahoo.map(k => fetchYahooSingle(YF_MAP[k])));
+    needYahoo.forEach((k, i) => { yfData[k] = yfResults[i]; if (yfResults[i]) yfCount++; });
+  }
+
+  // 3단계: 아직 실패한 항목 → Yahoo v8 chart API (range=1mo로 재시도)
+  const stillMissing = ALL_KEYS.filter(k => !gfData[k] && !yfData[k]);
+  const yf2Data = {};
+  if (stillMissing.length > 0) {
+    const yf2Results = await Promise.all(stillMissing.map(k => fetchYahooViaProxy(YF_MAP[k], '1mo')));
+    stillMissing.forEach((k, i) => { yf2Data[k] = yf2Results[i]; if (yf2Results[i]) yfCount++; });
+  }
+
+  // 결과 병합 (Google → Yahoo1 → Yahoo2 우선순위)
+  ALL_KEYS.forEach(k => { marketData[k] = gfData[k] || yfData[k] || yf2Data[k] || null; });
+
+  const loaded = gfCount + yfCount;
+  let dataSource = '';
+  if (gfCount === ALL_KEYS.length) dataSource = 'Google Finance';
+  else if (gfCount > 0 && yfCount > 0) dataSource = `Google Finance ${gfCount}개 + Yahoo 보충 ${yfCount}개`;
+  else if (gfCount > 0) dataSource = `Google Finance ${gfCount}개 (일부 실패)`;
+  else if (yfCount > 0) dataSource = `Yahoo Finance ${yfCount}개`;
+  else dataSource = '데이터 로딩 실패 — 새로고침 필요';
+
+  const failed = ALL_KEYS.filter(k => !marketData[k]);
+  if (failed.length > 0) dataSource += ` | 실패: ${failed.join(', ')}`;
+
+  const smaSource = smaResult ? ' | SMA200 ✓' : ' | SMA200 ✗';
+
+  // UI 업데이트
+  updateCriteriaUI(marketData.SP500, marketData.VIX, sma200Data);
+  updateETFPrices(ETF_KEYS);
+
+  // 결합 국면 판별
+  const vixVal = marketData.VIX?.price || null;
+  const phaseResult = determinePhase(vixVal, sma200Data);
+  updatePhaseUI(phaseResult);
+  showDetail(phaseResult.phase);
+
+  document.getElementById('lastUpdate').textContent =
+    `${new Date().toLocaleString('ko-KR')} | ${dataSource}${smaSource} | 약 15분 지연`;
+}
+
+// ===========================
+// UI Updates
+// ===========================
+function updateCriteriaUI(sp, vix, sma) {
+  // S&P 500 현재가
+  const spEl = document.getElementById('spPrice');
+  const spSt = document.getElementById('spStatus');
+  const critP = document.getElementById('crit-price');
+
+  if (sp && sp.price) {
+    spEl.textContent = sp.price.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    spSt.textContent = '정상 연결'; spSt.className = 'criteria-status status-ok'; critP.className = 'criteria-item active';
+  } else {
+    spEl.textContent = '연결 실패'; spSt.textContent = 'Google Finance 직접 확인 →';
+    spSt.className = 'criteria-status status-warn';
+  }
+
+  // SMA200 위치
+  const smaEl = document.getElementById('smaPosition');
+  const smaDetail = document.getElementById('smaDetail');
+  const smaSt = document.getElementById('smaStatus');
+  const critS = document.getElementById('crit-sma');
+  const smaBox = document.getElementById('smaDetailBox');
+
+  if (sma && sma.sma200) {
+    const staleTag = sma._stale ? ' (캐시)' : '';
+    if (sma.aboveSMA) {
+      smaEl.innerHTML = '<span class="sma-above">▲ 상회</span>';
+      smaDetail.textContent = `SMA200: ${sma.sma200.toLocaleString()} | 괴리: +${sma.gapPercent}%${staleTag}`;
+      smaSt.textContent = `${sma.consecutiveDaysAbove}일 연속 상회`;
+      smaSt.className = 'criteria-status status-ok';
+      critS.className = 'criteria-item active';
+    } else {
+      smaEl.innerHTML = '<span class="sma-below">▼ 하회</span>';
+      smaDetail.textContent = `SMA200: ${sma.sma200.toLocaleString()} | 괴리: ${sma.gapPercent}%${staleTag}`;
+      smaSt.textContent = `${sma.consecutiveDaysBelow}일 연속 하회`;
+      smaSt.className = 'criteria-status status-danger';
+      critS.className = 'criteria-item danger';
+    }
+
+    // 상세 박스
+    const posText = sma.aboveSMA ? '상회' : '하회';
+    const posClass = sma.aboveSMA ? 'sma-above' : 'sma-below';
+    const daysText = sma.aboveSMA
+      ? `연속 ${sma.consecutiveDaysAbove}일 SMA200 위에서 유지`
+      : `연속 ${sma.consecutiveDaysBelow}일 SMA200 아래 — 국면 강화 트리거 ${sma.consecutiveDaysBelow >= 5 ? '발동됨 ⚠️' : '대기 중 (5일 필요)'}`;
+    const staleNote = sma._stale ? ' | <span style="color:var(--orange)">⚠ 이전 캐시 데이터 사용 중 (다음 새로고침 시 재시도)</span>' : '';
+
+    smaBox.innerHTML = `S&P 500 현재가: <strong>${sma.currentPrice.toLocaleString()}</strong> | ` +
+      `SMA200: <strong>${sma.sma200.toLocaleString()}</strong> | ` +
+      `위치: <span class="${posClass}">${posText} (${sma.gapPercent > 0 ? '+' : ''}${sma.gapPercent}%)</span> | ${daysText}${staleNote}`;
+  } else {
+    // 완전 실패 시에도 VIX 단독으로 국면 판별 가능함을 안내
+    smaEl.textContent = '데이터 대기';
+    smaDetail.textContent = '새로고침 시 자동 재시도';
+    smaSt.textContent = 'VIX 단독 판별 중';
+    smaSt.className = 'criteria-status status-warn';
+    critS.className = 'criteria-item warn';
+    smaBox.innerHTML = 'SMA200 데이터를 가져오지 못했습니다. <strong>VIX 단독으로 국면을 판별 중</strong>이며, 새로고침하면 자동 재시도합니다. ' +
+      '수동 확인: <a href="https://www.tradingview.com/chart/?symbol=SP:SPX" target="_blank" style="color:var(--accent)">TradingView →</a> | ' +
+      '<a href="https://www.google.com/finance/quote/.INX:INDEXSP" target="_blank" style="color:var(--accent)">Google Finance →</a>';
+  }
+
+  // VIX
+  const vixEl = document.getElementById('vixValue');
+  const vixRange = document.getElementById('vixRange');
+  const vixSt = document.getElementById('vixStatus');
+  const critV = document.getElementById('crit-vix');
+  if (vix && vix.price) {
+    vixEl.textContent = vix.price.toFixed(2);
+    if (vix.price < 20) { vixSt.textContent = '안정 (< 20)'; vixSt.className = 'criteria-status status-ok'; vixRange.textContent = '→ 상승장 시그널'; critV.className = 'criteria-item active'; }
+    else if (vix.price < 25) { vixSt.textContent = '주의 (20~25)'; vixSt.className = 'criteria-status status-warn'; vixRange.textContent = '→ 횡보장 시그널'; critV.className = 'criteria-item warn'; }
+    else if (vix.price < 35) { vixSt.textContent = '위험 (25~35)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.1 시그널'; critV.className = 'criteria-item danger'; }
+    else if (vix.price < 45) { vixSt.textContent = '고위험 (35~45)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.2 시그널'; critV.className = 'criteria-item danger'; }
+    else { vixSt.textContent = '극단 (45+)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.3 시그널'; critV.className = 'criteria-item danger'; }
+  } else {
+    vixEl.textContent = '연결 실패'; vixSt.textContent = 'Google Finance 직접 확인 →';
+  }
+}
+
+function updateETFPrices(symbols) {
+  symbols.forEach(sym => {
+    const d = marketData[sym];
+    const pEl = document.getElementById('p-' + sym);
+    if (d && d.price) {
+      pEl.textContent = '$' + d.price.toFixed(2);
+    } else {
+      pEl.textContent = '—';
+    }
+  });
+}
+
+function updatePhaseUI(phaseResult) {
+  const badge = document.getElementById('phaseBadge');
+  const map = {
+    bull: ['▲ 상승장', 'phase-bull'], sideways: ['◆ 횡보장', 'phase-sideways'],
+    bear1: ['▼ 하락 Lv.1', 'phase-bear'], bear2: ['▼ 하락 Lv.2', 'phase-bear-l2'], bear3: ['▼ 하락 Lv.3', 'phase-bear-l3']
+  };
+  const [label, cls] = map[phaseResult.phase];
+  badge.textContent = label;
+  badge.className = 'phase-badge ' + cls;
+  badge.title = `판별: ${phaseResult.method}\nVIX 1차: ${map[phaseResult.vixPhase][0]}\nSMA200 조정: ${phaseResult.smaAdjust}`;
+}
+
+// ===========================
+// Allocation Table
+// ===========================
+const allocData = [
+  { phase:'상승장', cond:'VIX<20 + SMA↑', upro:20, tqqq:20, tmf:25, ief:15, ugl:10, gld:10, bil:0, dca:'비중 부족 자산에 100%', action:'리밸런싱 매수' },
+  { phase:'횡보장', cond:'VIX 20~25 or SMA근접', upro:10, tqqq:10, tmf:25, ief:15, ugl:10, gld:10, bil:20, dca:'50% 투자 / 50% BIL', action:'비중 축소' },
+  { phase:'하락 Lv.1', cond:'VIX 25~35 + SMA↓', upro:10, tqqq:10, tmf:20, ief:10, ugl:10, gld:10, bil:30, dca:'100% BIL', action:'방어 전환' },
+  { phase:'하락 Lv.2', cond:'VIX 35~45 + SMA↓', upro:5, tqqq:5, tmf:15, ief:5, ugl:10, gld:10, bil:50, dca:'100% BIL', action:'추가 축소' },
+  { phase:'하락 Lv.3', cond:'VIX>45', upro:0, tqqq:0, tmf:15, ief:5, ugl:10, gld:10, bil:60, dca:'100% BIL', action:'레버리지 전량 매도' }
+];
+const phaseColors = ['var(--green)','var(--orange)','#f87171','var(--red)','#dc2626'];
+
+function renderAllocTable(activeIdx) {
+  const tbody = document.getElementById('allocBody');
+  const barsDiv = document.getElementById('allocBars');
+  let html = '', barsHtml = '';
+  allocData.forEach((d, i) => {
+    const active = i === activeIdx ? ' row-active' : '';
+    const fmt = v => v === 0 ? '<span class="cell-zero">0%</span>' : v + '%';
+    html += `<tr class="${active}"><td class="phase-label" style="color:${phaseColors[i]}">${d.phase}</td>
+      <td style="font-size:10px;color:var(--text-dim)">${d.cond}</td>
+      <td>${fmt(d.upro)}</td><td>${fmt(d.tqqq)}</td><td>${fmt(d.tmf)}</td><td>${fmt(d.ief)}</td><td>${fmt(d.ugl)}</td><td>${fmt(d.gld)}</td><td>${fmt(d.bil)}</td>
+      <td style="font-size:10px;font-family:'Noto Sans KR';text-align:left">${d.dca}</td>
+      <td style="font-size:10px;font-weight:700;color:${phaseColors[i]}">${d.action}</td></tr>`;
+    barsHtml += `<div class="alloc-bar-row"><div class="alloc-bar-label" style="color:${phaseColors[i]}">${d.phase}</div><div class="alloc-bar-track">
+      ${d.upro ? `<div class="alloc-segment seg-upro" style="width:${d.upro}%">${d.upro}</div>` : ''}
+      ${d.tqqq ? `<div class="alloc-segment seg-tqqq" style="width:${d.tqqq}%">${d.tqqq}</div>` : ''}
+      ${d.tmf ? `<div class="alloc-segment seg-tmf" style="width:${d.tmf}%">${d.tmf}</div>` : ''}
+      ${d.ief ? `<div class="alloc-segment seg-ief" style="width:${d.ief}%">${d.ief}</div>` : ''}
+      ${d.ugl ? `<div class="alloc-segment seg-ugl" style="width:${d.ugl}%">${d.ugl}</div>` : ''}
+      ${d.gld ? `<div class="alloc-segment seg-gld" style="width:${d.gld}%">${d.gld}</div>` : ''}
+      ${d.bil ? `<div class="alloc-segment seg-bil" style="width:${d.bil}%">${d.bil}</div>` : ''}
+    </div></div>`;
+  });
+  tbody.innerHTML = html;
+  barsDiv.innerHTML = barsHtml;
+}
+
+// ===========================
+// Detail Panel
+// ===========================
+const detailData = {
+  bull: {
+    title:'상승장 매매 가이드', color:'var(--green)',
+    buy:['UPRO 20% — 비중 부족 시 적립금으로 매수','TQQQ 20% — 비중 부족 시 적립금으로 매수','TMF 25% + IEF 15% — 채권 분산 (장기3x + 중기1x)','UGL/GLD 20% — 비중 유지 매수'],
+    sell:['UPRO/TQQQ — 분기 리밸런싱 시 초과 비중분 매도 (이익실현)','매도 대금은 TMF/IEF/금에 재배분'],
+    rules:['리밸런싱: 월 1회 (매월 첫 거래일)','±5%p 이상 이탈 시 즉시 리밸런싱','적립금은 목표 비중 대비 가장 부족한 자산에 집중','위플래시 방지: SMA200 근처 교차 반복 시 1주 대기']
+  },
+  sideways: {
+    title:'횡보장 매매 가이드', color:'var(--orange)',
+    buy:['TMF 25% + IEF 15% — 채권 비중 유지','UGL/GLD 20% — 비중 유지','BIL 20% — 적립금의 50%를 BIL에 배분하여 현금 비축'],
+    sell:['UPRO 20%→10% — 초과분 매도','TQQQ 20%→10% — 초과분 매도','매도 대금 전액 BIL로 전환'],
+    rules:['변동성 드래그 방어가 최우선 목표','SMA200 근처에서 잦은 교차 시 거래 보류','BIL 수익률(연 4~5%)로 시간 가치 확보','상승장 전환 확인 전까지 레버리지 증가 금지']
+  },
+  bear1: {
+    title:'하락장 Lv.1 (경계) 매매 가이드', color:'#f87171',
+    buy:['BIL — 적립금 100% BIL에 배분','UGL/GLD 20% — 비중 유지 (안전자산)','TMF 20% + IEF 10% — 채권 축소하되 분산 유지'],
+    sell:['UPRO 20%→10% — 초과분 매도','TQQQ 20%→10% — 초과분 매도','TMF+IEF 40%→30% — 채권 슬리브 축소'],
+    rules:['신규 매수 중단, 현금 확보가 최우선','하락 초입에서 "저가 매수" 유혹에 빠지지 말 것','레벨2 진입 가능성 대비 추가 매도 준비','VIX 25 하회 + SMA200 상회 시 횡보장으로 복귀 판단']
+  },
+  bear2: {
+    title:'하락장 Lv.2 (위험) 매매 가이드', color:'var(--red)',
+    buy:['BIL — 적립금 + 매도 대금 전액 BIL','UGL/GLD 20% — 유일한 유지 자산','TMF 15% + IEF 5% — 최소 채권 유지'],
+    sell:['UPRO 10%→5% — 기존 보유분 추가 매도','TQQQ 10%→5% — 기존 보유분 추가 매도','TMF+IEF 30%→20% — 추가 축소'],
+    rules:['기존 보유 물량도 적극적으로 매도','2020년 2~3월이 이 단계에 해당','금(UGL/GLD)은 하락장 헷지로 반드시 유지','레벨3 진입 시 레버리지 전량 청산 준비']
+  },
+  bear3: {
+    title:'하락장 Lv.3 (극단) 매매 가이드', color:'#dc2626',
+    buy:['BIL 60% — 포트폴리오의 핵심','TMF 15% + IEF 5% — 극단적 금리 인하 수혜 기대','UGL/GLD 20% — 안전자산 최후 방어선'],
+    sell:['UPRO 전량 매도 (0%)','TQQQ 전량 매도 (0%)','레버리지 주식 포지션 제로로 만드는 것이 생존의 핵심'],
+    rules:['2008년 10월, 2020년 3월 중순이 이 단계','UPRO -75% 하락 시 원금 회복에 +300% 필요 → 복구 불가','감정적 "바닥 매수" 절대 금지','VIX<20 + S&P>SMA200 확인 후 2개월 단계적 복귀만 허용']
+  }
+};
+
+function showDetail(phase) {
+  document.querySelectorAll('.action-card').forEach(c => c.classList.remove('selected'));
+  const idx = ['bull','sideways','bear1','bear2','bear3'].indexOf(phase);
+  document.querySelectorAll('.action-card')[idx].classList.add('selected');
+  renderAllocTable(idx);
+  const d = detailData[phase];
+  document.getElementById('detailPanel').className = 'detail-panel show';
+  document.getElementById('detailPanel').innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:${d.color};margin-bottom:12px">${d.title}</div>
+    <div class="detail-grid">
+      <div class="detail-section"><h4 style="color:var(--green)">매수 / 보유</h4><ul>${d.buy.map(b=>`<li>${b}</li>`).join('')}</ul></div>
+      <div class="detail-section"><h4 style="color:var(--red)">매도 / 축소</h4><ul>${d.sell.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+      <div class="detail-section"><h4>리밸런싱 규칙</h4><ul>${d.rules.map(r=>`<li>${r}</li>`).join('')}</ul></div>
+    </div>`;
+}
+
+// ===========================
+// Initialize
+// ===========================
+renderAllocTable(0);
+showDetail('bull');
+
+// Load data
+loadAllData();
+
+// Auto-refresh every 5 minutes
+setInterval(loadAllData, 300000);
+</script>
+
+</body>
+</html>
