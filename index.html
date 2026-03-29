@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>레버리지 리스크패리티 매매 대시보드</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  :root {
+    --bg:#17171C;--bg-sub:#1E1E23;--card:#222229;--card-hover:#2A2A32;
+    --border:#2C2C35;--border-light:#38383F;
+    --text:#FFFFFF;--text-sec:#9E9EA4;--text-dim:#6B6B73;
+    --blue:#3182F6;--blue-bg:rgba(49,130,246,.12);
+    --red:#F04452;--red-bg:rgba(240,68,82,.12);
+    --green:#00C073;--green-bg:rgba(0,192,115,.12);
+    --orange:#F59E0B;--orange-bg:rgba(245,158,11,.12);
+    --purple:#8B5CF6;--purple-bg:rgba(139,92,246,.12);
+    --gold:#EAB308;--gold-bg:rgba(234,179,8,.12);
+    --cyan:#06B6D4;--cyan-bg:rgba(6,182,212,.12);
+    --radius:16px;--radius-sm:12px;--radius-xs:8px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+  /* ===== TOP NAV ===== */
+  .top-nav{background:var(--bg-sub);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .nav-left{display:flex;align-items:center;gap:24px}
+  .nav-logo{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;color:var(--blue)}
+  .nav-menu{display:flex;gap:4px}
+  .nav-menu a{color:var(--text-sec);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;border-radius:var(--radius-xs);transition:all .2s}
+  .nav-menu a:hover,.nav-menu a.active{color:var(--text);background:rgba(255,255,255,.06)}
+  .nav-right{display:flex;align-items:center;gap:12px}
+  .nav-search{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;color:var(--text-sec);font-size:13px;display:flex;align-items:center;gap:8px;cursor:pointer;min-width:200px}
+  .nav-search:hover{border-color:var(--border-light)}
+  .nav-search kbd{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);border:1px solid var(--border)}
+
+  /* ===== MARKET TICKER BAR ===== */
+  .ticker-bar{background:var(--bg-sub);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:20px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+  .ticker-bar::-webkit-scrollbar{display:none}
+  .ticker-item{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--card);border-radius:var(--radius-sm);border:1px solid var(--border);min-width:fit-content;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit}
+  .ticker-item:hover{border-color:var(--border-light);background:var(--card-hover)}
+  .ticker-item.active-phase{border-color:var(--blue);background:var(--blue-bg)}
+  .ticker-name{font-size:13px;font-weight:600;color:var(--text)}
+  .ticker-price{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+  .ticker-label{font-size:11px;color:var(--text-dim);font-weight:400}
+
+  /* ===== MAIN LAYOUT ===== */
+  .main-container{display:flex;gap:0;max-width:1600px;margin:0 auto;min-height:calc(100vh - 112px)}
+  .left-panel{width:360px;min-width:360px;border-right:1px solid var(--border);padding:20px;overflow-y:auto}
+  .left-panel::-webkit-scrollbar{width:4px}
+  .left-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .center-panel{flex:1;padding:20px;overflow-y:auto}
+  .center-panel::-webkit-scrollbar{width:4px}
+  .center-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .right-panel{width:340px;min-width:340px;border-left:1px solid var(--border);padding:20px;overflow-y:auto}
+  .right-panel::-webkit-scrollbar{width:4px}
+  .right-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+  /* ===== SECTION TITLE ===== */
+  .section-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .section-subtitle{font-size:12px;color:var(--text-dim);margin-bottom:12px;font-weight:400}
+
+  /* ===== TOSS-STYLE CARD ===== */
+  .toss-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;transition:all .2s}
+  .toss-card:hover{border-color:var(--border-light)}
+
+  /* ===== 국면 판별 카드 ===== */
+  .phase-indicator{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px;text-align:center}
+  .phase-indicator .phase-label{font-size:12px;color:var(--text-dim);margin-bottom:8px}
+  .phase-indicator .phase-name{font-size:28px;font-weight:900;margin-bottom:4px}
+  .phase-indicator .phase-desc{font-size:12px;color:var(--text-sec)}
+
+  /* ===== CRITERIA ===== */
+  .criteria-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;transition:all .2s}
+  .criteria-card:hover{border-color:var(--border-light)}
+  .criteria-card.active{border-color:var(--green);border-left:3px solid var(--green)}
+  .criteria-card.warn{border-color:var(--orange);border-left:3px solid var(--orange)}
+  .criteria-card.danger{border-color:var(--red);border-left:3px solid var(--red)}
+  .criteria-left{display:flex;flex-direction:column;gap:2px}
+  .criteria-label{font-size:12px;color:var(--text-dim);font-weight:400}
+  .criteria-status{font-size:11px;font-weight:600;margin-top:2px}
+  .status-ok{color:var(--green)}.status-warn{color:var(--orange)}.status-danger{color:var(--red)}
+  .criteria-right{text-align:right}
+  .criteria-value{font-size:22px;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1.2}
+  .criteria-sub{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+
+  /* ===== ETF 가격 리스트 ===== */
+  .etf-list-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:4px 0;margin-top:4px}
+  .etf-list{display:flex;flex-direction:column;gap:0}
+  .etf-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:0;cursor:pointer;transition:all .15s;text-decoration:none;color:inherit;border-bottom:1px solid var(--border)}
+  .etf-row:last-child{border-bottom:none}
+  .etf-row:hover{background:var(--card-hover)}
+  .etf-row-left{display:flex;align-items:center;gap:12px}
+  .etf-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;font-family:'JetBrains Mono',monospace;color:#fff}
+  .etf-info{display:flex;flex-direction:column;gap:1px}
+  .etf-sym{font-size:14px;font-weight:700;color:var(--text)}
+  .etf-name-sub{font-size:11px;color:var(--text-dim)}
+  .etf-row-right{text-align:right}
+  .etf-price{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+
+  /* ===== SMA 상세 ===== */
+  .sma-detail-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:11px;color:var(--text-sec);line-height:1.8;font-family:'JetBrains Mono',monospace;margin-bottom:12px}
+  .sma-above{color:var(--green);font-weight:700}
+  .sma-below{color:var(--red);font-weight:700}
+
+  /* ===== ALLOCATION TABLE ===== */
+  .alloc-table-wrap{overflow-x:auto;margin-bottom:16px}
+  .alloc-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+  .alloc-table th{padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:var(--text-dim);background:var(--bg-sub);border-bottom:1px solid var(--border);position:sticky;top:0}
+  .alloc-table th:first-child{text-align:left;padding-left:16px;border-radius:var(--radius-xs) 0 0 0}
+  .alloc-table th:last-child{border-radius:0 var(--radius-xs) 0 0}
+  .alloc-table td{padding:10px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;border-bottom:1px solid var(--border);transition:background .2s}
+  .alloc-table tr:hover td{background:rgba(255,255,255,.03)}
+  .alloc-table .row-active td{background:var(--blue-bg)}
+  .alloc-table .phase-label{text-align:left;font-weight:700;font-family:'Noto Sans KR',sans-serif;font-size:13px;padding-left:16px}
+  .cell-zero{color:var(--text-dim)}
+
+  /* ===== ALLOCATION BAR ===== */
+  .alloc-bar-container{margin-top:16px}
+  .alloc-bar-row{display:flex;align-items:center;margin-bottom:8px}
+  .alloc-bar-label{width:80px;font-size:11px;color:var(--text-sec);font-weight:600;text-align:right;padding-right:12px;flex-shrink:0}
+  .alloc-bar-track{flex:1;height:28px;background:rgba(255,255,255,.04);border-radius:var(--radius-xs);display:flex;overflow:hidden}
+  .alloc-segment{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:width .5s ease}
+  .seg-upro{background:#3182F6;color:#fff}.seg-tqqq{background:#6366f1;color:#fff}.seg-tmf{background:#06b6d4;color:#fff}
+  .seg-ief{background:#0891b2;color:#fff}
+  .seg-ugl{background:#EAB308;color:#000}.seg-gld{background:#CA8A04;color:#fff}.seg-bil{background:#6B6B73;color:#fff}
+  .legend-row{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-sec)}
+  .legend-dot{width:10px;height:10px;border-radius:3px}
+
+  /* ===== 국면 선택 탭 ===== */
+  .phase-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+  .phase-tab{padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;border:1px solid var(--border);background:transparent;color:var(--text-sec)}
+  .phase-tab:hover{background:rgba(255,255,255,.06);color:var(--text)}
+  .phase-tab.selected{color:#fff}
+  .phase-tab.tab-bull.selected{background:var(--green);border-color:var(--green)}
+  .phase-tab.tab-sideways.selected{background:var(--orange);border-color:var(--orange)}
+  .phase-tab.tab-bear1.selected{background:#F87171;border-color:#F87171}
+  .phase-tab.tab-bear2.selected{background:var(--red);border-color:var(--red)}
+  .phase-tab.tab-bear3.selected{background:#DC2626;border-color:#DC2626}
+
+  /* ===== DETAIL PANEL ===== */
+  .detail-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;display:none}
+  .detail-panel.show{display:block;animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .detail-section h4{font-size:12px;font-weight:700;margin-bottom:10px;letter-spacing:.5px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+  .detail-section ul{list-style:none;font-size:12px;line-height:2.2}
+  .detail-section li{padding:2px 0}
+  .detail-section li::before{content:'';display:inline-block;width:4px;height:4px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  .detail-buy li::before{background:var(--green)}.detail-sell li::before{background:var(--red)}.detail-rules li::before{background:var(--blue)}
+
+  /* ===== 복귀 규칙 ===== */
+  .recovery-box{margin-top:12px;background:var(--blue-bg);border:1px solid rgba(49,130,246,.3);border-radius:var(--radius-sm);padding:14px 16px;font-size:12px;line-height:1.8;color:var(--text-sec)}
+  .recovery-box strong{color:var(--blue)}
+
+  /* ===== RIGHT PANEL ITEMS ===== */
+  .principle-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:8px;transition:all .2s}
+  .principle-item:hover{border-color:var(--border-light)}
+  .principle-num{font-size:24px;font-weight:900;color:var(--blue);font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+  .principle-title{font-size:13px;font-weight:700;margin-bottom:6px;color:var(--text)}
+  .principle-desc{font-size:12px;color:var(--text-sec);line-height:1.6}
+
+  .rebal-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;transition:all .2s}
+  .rebal-card:hover{border-color:var(--border-light)}
+  .rebal-title{font-size:13px;font-weight:700;margin-bottom:6px;color:var(--blue)}
+  .rebal-desc{font-size:12px;color:var(--text-sec);line-height:1.7}
+
+  /* ===== CALCULATOR ===== */
+  .calc-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:20px}
+  .calc-title{font-size:15px;font-weight:700;margin-bottom:4px}
+  .calc-subtitle{font-size:12px;color:var(--text-dim);margin-bottom:16px}
+  .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;max-width:100%;overflow:hidden}
+  .calc-input-group{display:flex;flex-direction:column;gap:4px}
+  .calc-input-group label{font-size:11px;font-weight:600;color:var(--text-sec)}
+  .calc-input-group input{background:var(--bg-sub);border:1px solid var(--border);border-radius:var(--radius-xs);padding:10px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;outline:none;transition:border-color .2s;width:100%;min-width:0}
+  .calc-input-group input:focus{border-color:var(--blue)}
+  .calc-input-group input::placeholder{color:var(--text-dim)}
+  .calc-input-group .input-unit{font-size:10px;color:var(--text-dim)}
+  .calc-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;width:100%}
+  .calc-btn:hover{background:#2970DD}
+  .calc-result{margin-top:16px;display:none}
+  .calc-result.show{display:block;animation:fadeIn .3s ease}
+  .calc-result-title{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:12px}
+  .calc-holding{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px}
+  .calc-hold-item{background:var(--bg-sub);border-radius:var(--radius-xs);padding:10px 6px;text-align:center;border:1px solid var(--border)}
+  .calc-hold-item .h-sym{font-size:11px;font-weight:700;margin-bottom:2px}
+  .calc-hold-item .h-pct{font-size:16px;font-weight:900;font-family:'JetBrains Mono',monospace}
+  .calc-hold-item .h-val{font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+  .calc-hold-item.over{border-color:var(--red);background:var(--red-bg)}
+  .calc-hold-item.under{border-color:var(--green);background:var(--green-bg)}
+  .calc-advice{background:var(--bg-sub);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:12px;line-height:1.8;color:var(--text-sec)}
+  .calc-advice strong{color:var(--text)}
+  .calc-advice .act-buy{color:var(--green);font-weight:700}
+  .calc-advice .act-sell{color:var(--red);font-weight:700}
+  .calc-advice .act-hold{color:var(--text-dim);font-weight:600}
+  .calc-total-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 14px;background:var(--bg-sub);border-radius:var(--radius-xs);border:1px solid var(--border)}
+  .calc-total-row .t-label{font-size:12px;color:var(--text-sec)}
+  .calc-total-row .t-value{font-size:18px;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--blue)}
+
+  /* ===== LOADING ===== */
+  .loading-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== LINKS ===== */
+  .gf-link{font-size:11px;color:var(--blue);text-decoration:none;padding:3px 8px;border-radius:12px;font-weight:500;background:var(--blue-bg);transition:all .2s}
+  .gf-link:hover{background:rgba(49,130,246,.2)}
+  .data-source{font-size:11px;color:var(--blue);text-decoration:none;padding:3px 10px;border-radius:12px;background:var(--blue-bg);font-weight:500}
+  .data-source:hover{background:rgba(49,130,246,.25)}
+
+  /* ===== FOOTER STATUS ===== */
+  .footer-status{background:var(--bg-sub);border-top:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:100}
+  .footer-status .status-text{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+  .footer-status .status-dot{width:6px;height:6px;border-radius:50%;margin-right:6px;display:inline-block}
+  .footer-status .status-dot.live{background:var(--green);animation:pulse-dot 2s ease-in-out infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ===== RESPONSIVE ===== */
+  @media(max-width:1200px){
+    .main-container{flex-direction:column}
+    .left-panel,.right-panel{width:100%;min-width:auto;border:none;border-bottom:1px solid var(--border)}
+    .detail-grid{grid-template-columns:1fr}
+    .calc-grid{grid-template-columns:repeat(2,1fr)}
+    .calc-holding{grid-template-columns:repeat(4,1fr)}
+  }
+  @media(max-width:768px){
+    .top-nav{padding:0 16px}
+    .nav-search{display:none}
+    .ticker-bar{padding:10px 16px;gap:10px}
+    .left-panel,.center-panel,.right-panel{padding:16px}
+    .calc-grid{grid-template-columns:1fr 1fr}
+    .calc-holding{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAVIGATION -->
+<div class="top-nav">
+  <div class="nav-left">
+    <div class="nav-logo">
+      RP 매매 대시보드
+    </div>
+    <div class="nav-menu">
+      <a href="#" class="active">실시간 현황</a>
+      <a href="https://www.google.com/finance/" target="_blank">Google Finance</a>
+      <a href="https://www.tradingview.com/chart/?symbol=SP:SPX" target="_blank">TradingView</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <a class="data-source" href="https://www.google.com/finance/" target="_blank">데이터 출처</a>
+  </div>
+</div>
+
+<!-- MARKET TICKER BAR -->
+<div class="ticker-bar">
+  <div class="ticker-item" id="tickerPhase">
+    <div>
+      <div class="ticker-label">현재 국면</div>
+      <div class="ticker-name" id="phaseBadge" style="color:var(--green)">판별중...</div>
+    </div>
+  </div>
+  <a class="ticker-item" href="https://www.google.com/finance/quote/.INX:INDEXSP" target="_blank">
+    <div>
+      <div class="ticker-label">S&P 500</div>
+      <div class="ticker-price" id="tickerSP">—</div>
+    </div>
+  </a>
+  <a class="ticker-item" href="https://www.google.com/finance/quote/VIX:INDEXCBOE" target="_blank">
+    <div>
+      <div class="ticker-label">VIX</div>
+      <div class="ticker-price" id="tickerVIX">—</div>
+    </div>
+  </a>
+  <div class="ticker-item">
+    <div>
+      <div class="ticker-label">SMA200 위치</div>
+      <div class="ticker-price" id="tickerSMA">—</div>
+    </div>
+  </div>
+  <a class="ticker-item" href="https://www.google.com/finance/quote/USD-KRW" target="_blank">
+    <div>
+      <div class="ticker-label">달러 환율</div>
+      <div class="ticker-price" id="tickerUSDKRW">—</div>
+    </div>
+  </a>
+</div>
+
+<!-- MAIN 3-COLUMN LAYOUT -->
+<div class="main-container">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="section-title">시장 국면 판별</div>
+
+    <div class="phase-indicator" id="phaseCard">
+      <div class="phase-label">VIX + SMA200 결합 판별</div>
+      <div class="phase-name" id="phaseMainName"><span class="loading-spinner"></span></div>
+      <div class="phase-desc" id="phaseMainDesc">데이터 로딩중...</div>
+    </div>
+
+    <div class="criteria-card" id="crit-price">
+      <div class="criteria-left">
+        <div class="criteria-label">S&P 500 현재가</div>
+        <div class="criteria-status status-ok" id="spStatus">로딩중...</div>
+      </div>
+      <div class="criteria-right">
+        <div class="criteria-value" id="spPrice"><span class="loading-spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="criteria-card" id="crit-sma">
+      <div class="criteria-left">
+        <div class="criteria-label">SMA200 위치 판별</div>
+        <div class="criteria-sub" id="smaDetail">SMA200 계산중...</div>
+        <div class="criteria-status" id="smaStatus">로딩중...</div>
+      </div>
+      <div class="criteria-right">
+        <div class="criteria-value" id="smaPosition"><span class="loading-spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="criteria-card" id="crit-vix">
+      <div class="criteria-left">
+        <div class="criteria-label">VIX 공포지수</div>
+        <div class="criteria-sub" id="vixRange">—</div>
+        <div class="criteria-status" id="vixStatus">로딩중...</div>
+      </div>
+      <div class="criteria-right">
+        <div class="criteria-value" id="vixValue"><span class="loading-spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="sma-detail-box" id="smaDetailBox">SMA200 데이터 로딩중...</div>
+
+    <!-- ETF 가격 리스트 (음영 카드로 감싸기) -->
+    <div class="section-title" style="margin-top:20px">포트폴리오 ETF
+      <span style="font-size:11px;color:var(--text-dim);font-weight:400">실시간</span>
+    </div>
+    <div class="etf-list-wrap">
+      <div class="etf-list" id="etfPrices">
+        <a class="etf-row" href="https://www.google.com/finance/quote/UPRO:NYSEARCA" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#3182F6">UP</div><div class="etf-info"><div class="etf-sym">UPRO</div><div class="etf-name-sub">S&P 500 3x</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-UPRO">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/TQQQ:NASDAQ" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#6366f1">TQ</div><div class="etf-info"><div class="etf-sym">TQQQ</div><div class="etf-name-sub">Nasdaq 3x</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-TQQQ">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/TMF:NYSEARCA" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#06B6D4">TM</div><div class="etf-info"><div class="etf-sym">TMF</div><div class="etf-name-sub">국채 20Y+ 3x</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-TMF">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/IEF:NASDAQ" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#0891b2">IE</div><div class="etf-info"><div class="etf-sym">IEF</div><div class="etf-name-sub">국채 7-10Y</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-IEF">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/UGL:NYSEARCA" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#EAB308">UG</div><div class="etf-info"><div class="etf-sym">UGL</div><div class="etf-name-sub">금 2x</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-UGL">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/GLD:NYSEARCA" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#CA8A04">GL</div><div class="etf-info"><div class="etf-sym">GLD</div><div class="etf-name-sub">금 1x</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-GLD">—</div></div>
+        </a>
+        <a class="etf-row" href="https://www.google.com/finance/quote/BIL:NYSEARCA" target="_blank">
+          <div class="etf-row-left"><div class="etf-icon" style="background:#6B6B73">BI</div><div class="etf-info"><div class="etf-sym">BIL</div><div class="etf-name-sub">단기국채</div></div></div>
+          <div class="etf-row-right"><div class="etf-price" id="p-BIL">—</div></div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="center-panel">
+    <div class="section-title">시장 국면별 자산 배분표</div>
+
+    <div class="alloc-table-wrap">
+      <table class="alloc-table">
+        <thead>
+          <tr>
+            <th style="width:120px">국면</th>
+            <th style="width:90px">조건</th>
+            <th><span style="color:#3182F6;font-weight:700">UPRO</span></th>
+            <th><span style="color:#6366f1;font-weight:700">TQQQ</span></th>
+            <th><span style="color:#06b6d4;font-weight:700">TMF</span></th>
+            <th><span style="color:#0891b2;font-weight:700">IEF</span></th>
+            <th><span style="color:#EAB308;font-weight:700">UGL</span></th>
+            <th><span style="color:#CA8A04;font-weight:700">GLD</span></th>
+            <th><span style="color:#6B6B73;font-weight:700">BIL</span></th>
+            <th style="width:110px">적립금</th>
+            <th style="width:80px">행동</th>
+          </tr>
+        </thead>
+        <tbody id="allocBody"></tbody>
+      </table>
+    </div>
+
+    <div class="alloc-bar-container" id="allocBars"></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:#3182F6"></div>UPRO</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>TQQQ</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>TMF</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div>IEF</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#EAB308"></div>UGL</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#CA8A04"></div>GLD</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6B6B73"></div>BIL</div>
+    </div>
+
+    <!-- 국면별 매매 가이드 -->
+    <div class="section-title" style="margin-top:24px">국면별 매매 가이드</div>
+    <div class="phase-tabs">
+      <div class="phase-tab tab-bull selected" onclick="showDetail('bull')">상승장</div>
+      <div class="phase-tab tab-sideways" onclick="showDetail('sideways')">횡보장</div>
+      <div class="phase-tab tab-bear1" onclick="showDetail('bear1')">하락 Lv.1</div>
+      <div class="phase-tab tab-bear2" onclick="showDetail('bear2')">하락 Lv.2</div>
+      <div class="phase-tab tab-bear3" onclick="showDetail('bear3')">하락 Lv.3</div>
+    </div>
+    <div class="detail-panel show" id="detailPanel"></div>
+    <div class="recovery-box">
+      <strong>복귀 규칙:</strong> VIX &lt; 20 + S&P 500 &gt; SMA200 확인 후 → 1개월차: 목표 비중의 50%까지 복원 → 2개월차: 100% 복원. 급격한 재진입 금지 (더블딥 위험).
+    </div>
+
+    <!-- 포트폴리오 리밸런싱 계산기 -->
+    <div class="calc-section" id="calcSection">
+      <div class="calc-title">포트폴리오 리밸런싱 계산기</div>
+      <div class="calc-subtitle">현재 보유 ETF의 평단가와 수량을 입력하면, 현재 국면에 맞는 리밸런싱 방법을 안내합니다. (원화 기준)</div>
+
+      <div class="calc-grid" id="calcInputs">
+        <div class="calc-input-group">
+          <label>UPRO 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-UPRO" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>TQQQ 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-TQQQ" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>TMF 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-TMF" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>IEF 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-IEF" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>UGL 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-UGL" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>GLD 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-GLD" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>BIL 보유금액 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-BIL" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+        <div class="calc-input-group">
+          <label>이번달 적립금 (₩)</label>
+          <input type="text" inputmode="numeric" id="calc-DCA" placeholder="0" oninput="fmtKRWInput(this)">
+        </div>
+      </div>
+      <button class="calc-btn" onclick="runCalculator()">리밸런싱 분석하기</button>
+      <div class="calc-result" id="calcResult"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="section-title">핵심 매매 원칙</div>
+
+    <div class="principle-item">
+      <div class="principle-num">01</div>
+      <div class="principle-title">규칙 100% 준수</div>
+      <div class="principle-desc">감정적 판단 절대 금지.<br>VIX와 SMA200 숫자에만 의존.<br>한 번의 이탈이 복구 불가능한 손실로 이어짐</div>
+    </div>
+    <div class="principle-item">
+      <div class="principle-num">02</div>
+      <div class="principle-title">레버리지 리스크패리티 전략</div>
+      <div class="principle-desc">이 포트폴리오는 레버리지 ETF 중심의 리스크패리티 전략.<br>주식(UPRO/TQQQ), 채권(TMF/IEF),<br>금(UGL/GLD) 간 분산으로 리스크를 관리하며,<br>시장 국면에 따라 레버리지 비중을 조절하여 방어력을 확보</div>
+    </div>
+    <div class="principle-item">
+      <div class="principle-num">03</div>
+      <div class="principle-title">월간 적립 사이클</div>
+      <div class="principle-desc"><strong style="color:var(--blue)">매월 10일</strong> — 적립금 입금.<br>적립금은 현재 시장 국면에 맞는 '적립금 배분 방법'에 따라 투자<br>(상승장: 비중 부족 자산에 100%, 하락장: BIL에 100% 등)<br><br><strong style="color:var(--blue)">다음달 첫 거래일</strong> — 적립금 포함 전체 포트폴리오를<br>국면별 목표 비중에 맞춰 리밸런싱</div>
+    </div>
+    <div class="principle-item">
+      <div class="principle-num">04</div>
+      <div class="principle-title">현금은 탄약</div>
+      <div class="principle-desc">횡보/하락장에서 BIL에 축적된 현금이 반등 시 저가 매수의 원천. 현금 보유 = 전략적 판단</div>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">리밸런싱 규칙</div>
+
+    <div class="rebal-card">
+      <div class="rebal-title">정기 리밸런싱 — 매월 첫 거래일</div>
+      <div class="rebal-desc">매월 첫 거래일에 전체 포트폴리오(기존 보유 + 적립금)를 현재 국면의 목표 비중에 맞춰 리밸런싱<br><br>비중 ±5%p 이상 이탈 시 즉시 조정</div>
+    </div>
+    <div class="rebal-card">
+      <div class="rebal-title">정기 적립 — 매월 10일</div>
+      <div class="rebal-desc">매월 10일에 적립금을 입금.<br><strong style="color:var(--blue)">적립금은 바로 각 ETF에 비율대로 분배하지 않고</strong>, 현재 시장 국면에 맞는 '적립금 배분 방법'에 따라 투자 (배분표의 '적립금' 열 참고).<br><br>다음달 첫 거래일에 적립금 포함 전체 포트폴리오를 리밸런싱</div>
+    </div>
+    <div class="rebal-card">
+      <div class="rebal-title">비정기 — 국면 악화</div>
+      <div class="rebal-desc">VIX 3일 연속 임계값 돌파 또는 SMA200 5일 연속 하회 시 <strong style="color:var(--red)">즉시 실행</strong></div>
+    </div>
+    <div class="rebal-card">
+      <div class="rebal-title">비정기 — 국면 호전</div>
+      <div class="rebal-desc">VIX 3일 연속 임계값 하회 또는 SMA200 5일 연속 상회 시 <strong style="color:var(--green)">1주 대기 후 실행</strong></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER STATUS BAR -->
+<div class="footer-status">
+  <div class="status-text">
+    <span class="status-dot live" id="statusDot"></span>
+    <span id="lastUpdate"><span class="loading-spinner"></span> 데이터 로딩중...</span>
+  </div>
+</div>
+
+<script>
+// ===========================
+// CORS 프록시 설정
+// ===========================
+const PROXIES = [
+  { wrap: url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, json: true },
+  { wrap: url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, json: false },
+  { wrap: url => `https://corsproxy.io/?${encodeURIComponent(url)}`, json: false }
+];
+
+async function fetchViaProxy(url) {
+  for (const p of PROXIES) {
+    try {
+      const resp = await fetch(p.wrap(url), { signal: AbortSignal.timeout(18000) });
+      if (!resp.ok) continue;
+      if (p.json) { const j = await resp.json(); return j.contents || null; }
+      return await resp.text();
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+async function fetchYahooViaProxy(ticker, range) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range || '1y'}`;
+  const text = await fetchViaProxy(url);
+  if (!text) return null;
+  try {
+    const data = JSON.parse(text);
+    const result = data.chart.result[0];
+    const closes = result.indicators.quote[0].close.filter(v => v != null);
+    if (closes.length < 2) return null;
+    const price = closes[closes.length - 1];
+    const prevPrice = closes[closes.length - 2];
+    return { price: Math.round(price * 100) / 100, change: { val: Math.round((price - prevPrice) * 100) / 100, pct: Math.round((price - prevPrice) / prevPrice * 10000) / 100 }, closes, timestamps: result.timestamp };
+  } catch(e) { return null; }
+}
+
+async function fetchGoogleFinance(ticker) {
+  const url = `https://www.google.com/finance/quote/${ticker}`;
+  const html = await fetchViaProxy(url);
+  if (!html) return null;
+  let price = null, changePct = null, changeVal = null;
+  const dlpM = html.match(/data-last-price="([0-9,.]+)"/);
+  if (dlpM) { const v = parseFloat(dlpM[1].replace(/,/g, '')); if (v > 0 && v < 1000000) price = v; }
+  const dcpM = html.match(/data-change-percent="(-?[0-9,.]+)"/);
+  if (dcpM) changePct = parseFloat(dcpM[1]);
+  const dcvM = html.match(/data-change="(-?[0-9,.]+)"/);
+  if (dcvM) changeVal = parseFloat(dcvM[1]);
+  if (!price) { const ymM = html.match(/class="YMlKec[^"]*"[^>]*>([0-9,.]+)/); if (ymM) { const v = parseFloat(ymM[1].replace(/,/g, '')); if (v > 0 && v < 1000000) price = v; } }
+  if (!price) return null;
+  return { price, change: { pct: changePct || 0, val: changeVal || 0 } };
+}
+
+async function fetchYahooSingle(ticker) {
+  const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+  const text1 = await fetchViaProxy(url1);
+  if (text1) {
+    try {
+      const data = JSON.parse(text1);
+      const result = data.chart.result[0];
+      const meta = result.meta;
+      const closes = result.indicators.quote[0].close.filter(v => v != null);
+      if (closes.length >= 2) {
+        const price = closes[closes.length - 1];
+        const prev = meta.chartPreviousClose || closes[closes.length - 2];
+        return { price: Math.round(price * 100) / 100, change: { val: Math.round((price - prev) * 100) / 100, pct: Math.round((price - prev) / prev * 10000) / 100 } };
+      }
+    } catch(e) {}
+  }
+  return null;
+}
+
+// ===========================
+// SMA200 계산
+// ===========================
+let sma200Data = { sma200: null, currentPrice: null, aboveSMA: null, gapPercent: null, consecutiveDaysBelow: 0 };
+let sma200Cache = { data: null, timestamp: 0 };
+const SMA_CACHE_TTL = 5 * 60 * 1000;
+
+async function fetchYahooHistorical(ticker, range) {
+  const urls = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`
+  ];
+  for (const url of urls) {
+    for (const p of PROXIES) {
+      try {
+        const resp = await fetch(p.wrap(url), { signal: AbortSignal.timeout(20000) });
+        if (!resp.ok) continue;
+        let text;
+        if (p.json) { const j = await resp.json(); text = j.contents; } else { text = await resp.text(); }
+        if (!text) continue;
+        const data = JSON.parse(text);
+        const result = data.chart.result[0];
+        const closes = result.indicators.quote[0].close.filter(v => v != null);
+        if (closes.length >= 200) return closes;
+      } catch(e) { continue; }
+    }
+  }
+  return null;
+}
+
+async function calculateSMA200() {
+  if (sma200Cache.data && (Date.now() - sma200Cache.timestamp < SMA_CACHE_TTL)) { sma200Data = sma200Cache.data; return sma200Data; }
+  let closes = await fetchYahooHistorical('^GSPC', '1y');
+  if (!closes || closes.length < 200) closes = await fetchYahooHistorical('^GSPC', '2y');
+  if (!closes || closes.length < 200) closes = await fetchYahooHistorical('SPY', '1y');
+  if (!closes || closes.length < 200) closes = await fetchYahooHistorical('SPY', '2y');
+  if (!closes || closes.length < 200) {
+    if (sma200Cache.data) { sma200Data = sma200Cache.data; sma200Data._stale = true; return sma200Data; }
+    return null;
+  }
+  const result = computeSMA(closes);
+  if (result) sma200Cache = { data: result, timestamp: Date.now() };
+  return result;
+}
+
+function computeSMA(closes) {
+  if (closes.length < 200) return null;
+  const last200 = closes.slice(-200);
+  const sma200 = last200.reduce((a, b) => a + b, 0) / 200;
+  const currentPrice = closes[closes.length - 1];
+  const gapPercent = ((currentPrice - sma200) / sma200) * 100;
+  let consecutiveDaysBelow = 0;
+  for (let i = closes.length - 1; i >= Math.max(0, closes.length - 30); i--) {
+    if (i < 200) break;
+    const localSMA = closes.slice(i - 200, i).reduce((a, b) => a + b, 0) / 200;
+    if (closes[i] < localSMA) consecutiveDaysBelow++; else break;
+  }
+  let consecutiveDaysAbove = 0;
+  for (let i = closes.length - 1; i >= Math.max(0, closes.length - 30); i--) {
+    if (i < 200) break;
+    const localSMA = closes.slice(i - 200, i).reduce((a, b) => a + b, 0) / 200;
+    if (closes[i] >= localSMA) consecutiveDaysAbove++; else break;
+  }
+  sma200Data = { sma200: Math.round(sma200 * 100) / 100, currentPrice: Math.round(currentPrice * 100) / 100, aboveSMA: currentPrice >= sma200, gapPercent: Math.round(gapPercent * 100) / 100, consecutiveDaysBelow, consecutiveDaysAbove };
+  return sma200Data;
+}
+
+// ===========================
+// 국면 판별
+// ===========================
+function determinePhase(vix, smaInfo) {
+  let vixPhase = 'bull';
+  if (!vix) vix = 0;
+  if (vix > 45) vixPhase = 'bear3';
+  else if (vix > 35) vixPhase = 'bear2';
+  else if (vix > 25) vixPhase = 'bear1';
+  else if (vix > 20) vixPhase = 'sideways';
+  if (!smaInfo || smaInfo.aboveSMA === null) return { phase: vixPhase, method: 'VIX 단독', vixPhase, smaAdjust: 'N/A' };
+  const phaseOrder = ['bull', 'sideways', 'bear1', 'bear2', 'bear3'];
+  let idx = phaseOrder.indexOf(vixPhase);
+  let smaAdjust = '없음';
+  if (smaInfo.aboveSMA && smaInfo.consecutiveDaysAbove >= 5) {
+    if (idx > 0) { idx--; smaAdjust = '1단계 완화 (SMA200 상회 ' + smaInfo.consecutiveDaysAbove + '일)'; } else smaAdjust = '상승장 유지';
+  } else if (!smaInfo.aboveSMA && smaInfo.consecutiveDaysBelow >= 5) {
+    if (idx < phaseOrder.length - 1) { idx++; smaAdjust = '1단계 강화 (SMA200 하회 ' + smaInfo.consecutiveDaysBelow + '일)'; } else smaAdjust = '극단 하락 유지';
+  } else if (!smaInfo.aboveSMA && smaInfo.consecutiveDaysBelow >= 1) {
+    if (vixPhase === 'bull') { idx = 1; smaAdjust = '주의 전환 (SMA200 하회 ' + smaInfo.consecutiveDaysBelow + '일)'; } else smaAdjust = 'VIX 국면 유지';
+  } else smaAdjust = 'SMA200 상회 중';
+  return { phase: phaseOrder[idx], method: 'VIX + SMA200 결합', vixPhase, smaAdjust };
+}
+
+// ===========================
+// 데이터 로딩
+// ===========================
+let marketData = {};
+let currentPhaseIdx = 0;
+const GF_MAP = { SP500: '.INX:INDEXSP', VIX: 'VIX:INDEXCBOE', UPRO: 'UPRO:NYSEARCA', TQQQ: 'TQQQ:NASDAQ', TMF: 'TMF:NYSEARCA', IEF: 'IEF:NASDAQ', UGL: 'UGL:NYSEARCA', GLD: 'GLD:NYSEARCA', BIL: 'BIL:NYSEARCA', USDKRW: 'USD-KRW' };
+const YF_MAP = { SP500: '^GSPC', VIX: '^VIX', UPRO: 'UPRO', TQQQ: 'TQQQ', TMF: 'TMF', IEF: 'IEF', UGL: 'UGL', GLD: 'GLD', BIL: 'BIL', USDKRW: 'KRW=X' };
+const ALL_KEYS = ['SP500', 'VIX', 'UPRO', 'TQQQ', 'TMF', 'IEF', 'UGL', 'GLD', 'BIL', 'USDKRW'];
+const ETF_KEYS = ['UPRO', 'TQQQ', 'TMF', 'IEF', 'UGL', 'GLD', 'BIL'];
+
+async function loadAllData() {
+  let gfCount = 0, yfCount = 0;
+  const [smaResult, ...gfResults] = await Promise.all([calculateSMA200(), ...ALL_KEYS.map(k => fetchGoogleFinance(GF_MAP[k]))]);
+  const gfData = {};
+  ALL_KEYS.forEach((k, i) => { gfData[k] = gfResults[i]; if (gfResults[i]) gfCount++; });
+  const needYahoo = ALL_KEYS.filter(k => !gfData[k]);
+  const yfData = {};
+  if (needYahoo.length > 0) {
+    const yfResults = await Promise.all(needYahoo.map(k => fetchYahooSingle(YF_MAP[k])));
+    needYahoo.forEach((k, i) => { yfData[k] = yfResults[i]; if (yfResults[i]) yfCount++; });
+  }
+  const stillMissing = ALL_KEYS.filter(k => !gfData[k] && !yfData[k]);
+  const yf2Data = {};
+  if (stillMissing.length > 0) {
+    const yf2Results = await Promise.all(stillMissing.map(k => fetchYahooViaProxy(YF_MAP[k], '1mo')));
+    stillMissing.forEach((k, i) => { yf2Data[k] = yf2Results[i]; if (yf2Results[i]) yfCount++; });
+  }
+  ALL_KEYS.forEach(k => { marketData[k] = gfData[k] || yfData[k] || yf2Data[k] || null; });
+  let dataSource = '';
+  if (gfCount === ALL_KEYS.length) dataSource = 'Google Finance';
+  else if (gfCount > 0 && yfCount > 0) dataSource = `GF ${gfCount} + Yahoo ${yfCount}`;
+  else if (gfCount > 0) dataSource = `GF ${gfCount}`;
+  else if (yfCount > 0) dataSource = `Yahoo ${yfCount}`;
+  else dataSource = '로딩 실패';
+  const failed = ALL_KEYS.filter(k => !marketData[k]);
+  if (failed.length > 0) dataSource += ` | 실패: ${failed.join(', ')}`;
+  const smaSource = smaResult ? ' | SMA200 ✓' : ' | SMA200 ✗';
+  updateCriteriaUI(marketData.SP500, marketData.VIX, sma200Data);
+  updateETFPrices(ETF_KEYS);
+  updateUSDKRW();
+  const vixVal = marketData.VIX?.price || null;
+  const phaseResult = determinePhase(vixVal, sma200Data);
+  updatePhaseUI(phaseResult);
+  showDetail(phaseResult.phase);
+  document.getElementById('lastUpdate').textContent = `${new Date().toLocaleString('ko-KR')} | ${dataSource}${smaSource} | 약 15분 지연`;
+  document.getElementById('statusDot').className = 'status-dot live';
+}
+
+// ===========================
+// UI Updates
+// ===========================
+function updateUSDKRW() {
+  const d = marketData.USDKRW;
+  const el = document.getElementById('tickerUSDKRW');
+  if (d && d.price) {
+    el.textContent = '₩' + d.price.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else {
+    el.textContent = '—';
+  }
+}
+
+function updateCriteriaUI(sp, vix, sma) {
+  const spEl = document.getElementById('spPrice');
+  const spSt = document.getElementById('spStatus');
+  const critP = document.getElementById('crit-price');
+  if (sp && sp.price) {
+    spEl.textContent = sp.price.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    spSt.textContent = '정상 연결'; spSt.className = 'criteria-status status-ok'; critP.className = 'criteria-card active';
+    document.getElementById('tickerSP').textContent = sp.price.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  } else {
+    spEl.textContent = '—'; spSt.textContent = 'Google Finance 확인 →'; spSt.className = 'criteria-status status-warn';
+  }
+
+  const smaEl = document.getElementById('smaPosition');
+  const smaDetail = document.getElementById('smaDetail');
+  const smaSt = document.getElementById('smaStatus');
+  const critS = document.getElementById('crit-sma');
+  const smaBox = document.getElementById('smaDetailBox');
+  if (sma && sma.sma200) {
+    const staleTag = sma._stale ? ' (캐시)' : '';
+    if (sma.aboveSMA) {
+      smaEl.innerHTML = '<span class="sma-above">▲ 상회</span>';
+      smaDetail.textContent = `SMA: ${sma.sma200.toLocaleString()} | +${sma.gapPercent}%${staleTag}`;
+      smaSt.textContent = `${sma.consecutiveDaysAbove}일 연속 상회`; smaSt.className = 'criteria-status status-ok'; critS.className = 'criteria-card active';
+      document.getElementById('tickerSMA').innerHTML = '<span style="color:var(--green)">▲ 상회</span>';
+    } else {
+      smaEl.innerHTML = '<span class="sma-below">▼ 하회</span>';
+      smaDetail.textContent = `SMA: ${sma.sma200.toLocaleString()} | ${sma.gapPercent}%${staleTag}`;
+      smaSt.textContent = `${sma.consecutiveDaysBelow}일 연속 하회`; smaSt.className = 'criteria-status status-danger'; critS.className = 'criteria-card danger';
+      document.getElementById('tickerSMA').innerHTML = '<span style="color:var(--red)">▼ 하회</span>';
+    }
+    const posText = sma.aboveSMA ? '상회' : '하회';
+    const posClass = sma.aboveSMA ? 'sma-above' : 'sma-below';
+    const daysText = sma.aboveSMA ? `연속 ${sma.consecutiveDaysAbove}일 SMA200 위에서 유지` : `연속 ${sma.consecutiveDaysBelow}일 SMA200 아래 — 트리거 ${sma.consecutiveDaysBelow >= 5 ? '발동됨' : '대기 중 (5일 필요)'}`;
+    const staleNote = sma._stale ? ' | <span style="color:var(--orange)">이전 캐시 데이터</span>' : '';
+    smaBox.innerHTML = `S&P 500: <strong>${sma.currentPrice.toLocaleString()}</strong> | SMA200: <strong>${sma.sma200.toLocaleString()}</strong> | <span class="${posClass}">${posText} (${sma.gapPercent > 0 ? '+' : ''}${sma.gapPercent}%)</span> | ${daysText}${staleNote}`;
+  } else {
+    smaEl.textContent = '대기'; smaDetail.textContent = '새로고침 시 재시도'; smaSt.textContent = 'VIX 단독 판별 중'; smaSt.className = 'criteria-status status-warn'; critS.className = 'criteria-card warn';
+    smaBox.innerHTML = 'SMA200 데이터를 가져오지 못했습니다. <strong>VIX 단독 판별 중</strong> | <a href="https://www.tradingview.com/chart/?symbol=SP:SPX" target="_blank" style="color:var(--blue)">TradingView →</a>';
+  }
+
+  const vixEl = document.getElementById('vixValue');
+  const vixRange = document.getElementById('vixRange');
+  const vixSt = document.getElementById('vixStatus');
+  const critV = document.getElementById('crit-vix');
+  if (vix && vix.price) {
+    vixEl.textContent = vix.price.toFixed(2);
+    document.getElementById('tickerVIX').textContent = vix.price.toFixed(2);
+    if (vix.price < 20) { vixSt.textContent = '안정 (< 20)'; vixSt.className = 'criteria-status status-ok'; vixRange.textContent = '→ 상승장'; critV.className = 'criteria-card active'; }
+    else if (vix.price < 25) { vixSt.textContent = '주의 (20~25)'; vixSt.className = 'criteria-status status-warn'; vixRange.textContent = '→ 횡보장'; critV.className = 'criteria-card warn'; }
+    else if (vix.price < 35) { vixSt.textContent = '위험 (25~35)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.1'; critV.className = 'criteria-card danger'; }
+    else if (vix.price < 45) { vixSt.textContent = '고위험 (35~45)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.2'; critV.className = 'criteria-card danger'; }
+    else { vixSt.textContent = '극단 (45+)'; vixSt.className = 'criteria-status status-danger'; vixRange.textContent = '→ 하락 Lv.3'; critV.className = 'criteria-card danger'; }
+  } else {
+    vixEl.textContent = '—'; vixSt.textContent = 'Google Finance 확인 →';
+  }
+}
+
+function updateETFPrices(symbols) {
+  symbols.forEach(sym => {
+    const d = marketData[sym];
+    const pEl = document.getElementById('p-' + sym);
+    if (d && d.price) { pEl.textContent = '$' + d.price.toFixed(2); }
+    else { pEl.textContent = '—'; }
+  });
+}
+
+function updatePhaseUI(phaseResult) {
+  const badge = document.getElementById('phaseBadge');
+  const mainName = document.getElementById('phaseMainName');
+  const mainDesc = document.getElementById('phaseMainDesc');
+  const map = {
+    bull: ['▲ 상승장', 'var(--green)', '레버리지 공격적 운용', 0], sideways: ['◆ 횡보장', 'var(--orange)', '현금 비축 + 비중 축소', 1],
+    bear1: ['▼ 하락 Lv.1', '#F87171', '방어 전환 + 신규매수 중단', 2], bear2: ['▼ 하락 Lv.2', 'var(--red)', '적극적 매도 + BIL 전환', 3], bear3: ['▼ 하락 Lv.3', '#DC2626', '레버리지 전량 청산', 4]
+  };
+  const [label, color, desc, idx] = map[phaseResult.phase];
+  currentPhaseIdx = idx;
+  badge.textContent = label; badge.style.color = color;
+  mainName.textContent = label; mainName.style.color = color;
+  mainDesc.textContent = desc;
+  badge.title = `판별: ${phaseResult.method}\nVIX 1차: ${map[phaseResult.vixPhase][0]}\nSMA200 조정: ${phaseResult.smaAdjust}`;
+  document.getElementById('tickerPhase').className = 'ticker-item active-phase';
+}
+
+// ===========================
+// Allocation Table
+// ===========================
+const allocData = [
+  { phase:'상승장', cond:'VIX<20 + SMA↑', upro:20, tqqq:20, tmf:25, ief:15, ugl:10, gld:10, bil:0, dca:'비중 부족 자산에 100%', action:'리밸런싱 매수' },
+  { phase:'횡보장', cond:'VIX 20~25', upro:10, tqqq:10, tmf:25, ief:15, ugl:10, gld:10, bil:20, dca:'50% 투자 / 50% BIL', action:'비중 축소' },
+  { phase:'하락 Lv.1', cond:'VIX 25~35', upro:10, tqqq:10, tmf:20, ief:10, ugl:10, gld:10, bil:30, dca:'100% BIL', action:'방어 전환' },
+  { phase:'하락 Lv.2', cond:'VIX 35~45', upro:5, tqqq:5, tmf:15, ief:5, ugl:10, gld:10, bil:50, dca:'100% BIL', action:'추가 축소' },
+  { phase:'하락 Lv.3', cond:'VIX>45', upro:0, tqqq:0, tmf:15, ief:5, ugl:10, gld:10, bil:60, dca:'100% BIL', action:'전량 매도' }
+];
+const phaseColors = ['var(--green)','var(--orange)','#F87171','var(--red)','#DC2626'];
+
+function renderAllocTable(activeIdx) {
+  const tbody = document.getElementById('allocBody');
+  const barsDiv = document.getElementById('allocBars');
+  let html = '', barsHtml = '';
+  allocData.forEach((d, i) => {
+    const active = i === activeIdx ? ' row-active' : '';
+    const fmt = v => v === 0 ? '<span class="cell-zero">0%</span>' : v + '%';
+    html += `<tr class="${active}"><td class="phase-label" style="color:${phaseColors[i]}">${d.phase}</td>
+      <td style="font-size:10px;color:var(--text-dim)">${d.cond}</td>
+      <td>${fmt(d.upro)}</td><td>${fmt(d.tqqq)}</td><td>${fmt(d.tmf)}</td><td>${fmt(d.ief)}</td><td>${fmt(d.ugl)}</td><td>${fmt(d.gld)}</td><td>${fmt(d.bil)}</td>
+      <td style="font-size:10px;font-family:'Noto Sans KR';text-align:left">${d.dca}</td>
+      <td style="font-size:11px;font-weight:700;color:${phaseColors[i]}">${d.action}</td></tr>`;
+    barsHtml += `<div class="alloc-bar-row"><div class="alloc-bar-label" style="color:${phaseColors[i]}">${d.phase}</div><div class="alloc-bar-track">
+      ${d.upro ? `<div class="alloc-segment seg-upro" style="width:${d.upro}%">${d.upro}</div>` : ''}
+      ${d.tqqq ? `<div class="alloc-segment seg-tqqq" style="width:${d.tqqq}%">${d.tqqq}</div>` : ''}
+      ${d.tmf ? `<div class="alloc-segment seg-tmf" style="width:${d.tmf}%">${d.tmf}</div>` : ''}
+      ${d.ief ? `<div class="alloc-segment seg-ief" style="width:${d.ief}%">${d.ief}</div>` : ''}
+      ${d.ugl ? `<div class="alloc-segment seg-ugl" style="width:${d.ugl}%">${d.ugl}</div>` : ''}
+      ${d.gld ? `<div class="alloc-segment seg-gld" style="width:${d.gld}%">${d.gld}</div>` : ''}
+      ${d.bil ? `<div class="alloc-segment seg-bil" style="width:${d.bil}%">${d.bil}</div>` : ''}
+    </div></div>`;
+  });
+  tbody.innerHTML = html;
+  barsDiv.innerHTML = barsHtml;
+}
+
+// ===========================
+// Detail Panel
+// ===========================
+const detailData = {
+  bull: { title:'상승장 매매 가이드', color:'var(--green)',
+    buy:['UPRO 20% — 비중 부족 시 적립금으로 매수','TQQQ 20% — 비중 부족 시 적립금으로 매수','TMF 25% + IEF 15% — 채권 분산','UGL/GLD 20% — 비중 유지 매수'],
+    sell:['UPRO/TQQQ — 분기 리밸런싱 시 초과분 매도','매도 대금은 TMF/IEF/금에 재배분'],
+    rules:['리밸런싱: 매월 첫 거래일','±5%p 이상 이탈 시 즉시 리밸런싱','적립금(매월 10일): 비중 부족 자산에 100% 투입','위플래시 방지: SMA200 교차 반복 시 1주 대기']
+  },
+  sideways: { title:'횡보장 매매 가이드', color:'var(--orange)',
+    buy:['TMF 25% + IEF 15% — 채권 비중 유지','UGL/GLD 20% — 비중 유지','BIL 20% — 현금 비축'],
+    sell:['UPRO 20%→10% — 초과분 매도','TQQQ 20%→10% — 초과분 매도','매도 대금 전액 BIL로 전환'],
+    rules:['변동성 드래그 방어가 최우선','SMA200 근처 잦은 교차 시 거래 보류','적립금(매월 10일): 50% 투자 / 50% BIL','상승장 확인 전 레버리지 증가 금지']
+  },
+  bear1: { title:'하락 Lv.1 (경계) 매매 가이드', color:'#F87171',
+    buy:['BIL — 적립금 100% BIL에 배분','UGL/GLD 20% — 안전자산 유지','TMF 20% + IEF 10% — 채권 분산 유지'],
+    sell:['UPRO 20%→10% — 초과분 매도','TQQQ 20%→10% — 초과분 매도','TMF+IEF 40%→30% — 채권 슬리브 축소'],
+    rules:['신규 매수 중단, 현금 확보 최우선','저가 매수 유혹에 빠지지 말 것','적립금(매월 10일): 100% BIL','VIX<25 + SMA200 상회 시 횡보장 복귀']
+  },
+  bear2: { title:'하락 Lv.2 (위험) 매매 가이드', color:'var(--red)',
+    buy:['BIL — 적립금 + 매도 대금 전액 BIL','UGL/GLD 20% — 유일한 유지 자산','TMF 15% + IEF 5% — 최소 채권 유지'],
+    sell:['UPRO 10%→5% — 기존 보유분 추가 매도','TQQQ 10%→5% — 기존 보유분 추가 매도','TMF+IEF 30%→20% — 추가 축소'],
+    rules:['기존 보유 물량도 적극적으로 매도','2020년 2~3월이 이 단계에 해당','적립금(매월 10일): 100% BIL','Lv.3 진입 시 레버리지 전량 청산 준비']
+  },
+  bear3: { title:'하락 Lv.3 (극단) 매매 가이드', color:'#DC2626',
+    buy:['BIL 60% — 포트폴리오의 핵심','TMF 15% + IEF 5% — 극단적 금리 인하 수혜','UGL/GLD 20% — 안전자산 최후 방어선'],
+    sell:['UPRO 전량 매도 (0%)','TQQQ 전량 매도 (0%)','레버리지 주식 포지션 제로가 생존의 핵심'],
+    rules:['2008년 10월, 2020년 3월이 이 단계','UPRO -75% 시 원금 회복에 +300% 필요','적립금(매월 10일): 100% BIL','감정적 바닥 매수 절대 금지']
+  }
+};
+
+function showDetail(phase) {
+  document.querySelectorAll('.phase-tab').forEach(c => c.classList.remove('selected'));
+  const idx = ['bull','sideways','bear1','bear2','bear3'].indexOf(phase);
+  document.querySelectorAll('.phase-tab')[idx].classList.add('selected');
+  renderAllocTable(idx);
+  const d = detailData[phase];
+  document.getElementById('detailPanel').className = 'detail-panel show';
+  document.getElementById('detailPanel').innerHTML = `
+    <div style="font-size:15px;font-weight:700;color:${d.color};margin-bottom:14px">${d.title}</div>
+    <div class="detail-grid">
+      <div class="detail-section detail-buy"><h4 style="color:var(--green)">매수 / 보유</h4><ul>${d.buy.map(b=>`<li>${b}</li>`).join('')}</ul></div>
+      <div class="detail-section detail-sell"><h4 style="color:var(--red)">매도 / 축소</h4><ul>${d.sell.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+      <div class="detail-section detail-rules"><h4 style="color:var(--blue)">리밸런싱 규칙</h4><ul>${d.rules.map(r=>`<li>${r}</li>`).join('')}</ul></div>
+    </div>`;
+}
+
+// ===========================
+// KRW Formatting Helpers
+// ===========================
+function fmtKRWInput(el) {
+  const pos = el.selectionStart;
+  const oldLen = el.value.length;
+  const raw = el.value.replace(/[^0-9]/g, '');
+  el.value = raw ? Number(raw).toLocaleString('ko-KR') : '';
+  const newLen = el.value.length;
+  const newPos = pos + (newLen - oldLen);
+  el.setSelectionRange(newPos, newPos);
+}
+function parseKRW(str) { return parseInt((str || '').replace(/[^0-9]/g, ''), 10) || 0; }
+function toKRW(n) { return '₩' + Math.round(n).toLocaleString('ko-KR'); }
+
+// ===========================
+// Portfolio Calculator
+// ===========================
+function runCalculator() {
+  const syms = ['UPRO','TQQQ','TMF','IEF','UGL','GLD','BIL'];
+  const vals = {};
+  let total = 0;
+  syms.forEach(s => {
+    const v = parseKRW(document.getElementById('calc-' + s).value);
+    vals[s] = v;
+    total += v;
+  });
+  const dca = parseKRW(document.getElementById('calc-DCA').value);
+
+  if (total <= 0) {
+    alert('보유금액을 1개 이상 입력해주세요.');
+    return;
+  }
+
+  const phase = allocData[currentPhaseIdx];
+  const phaseName = phase.phase;
+  const targets = { UPRO: phase.upro, TQQQ: phase.tqqq, TMF: phase.tmf, IEF: phase.ief, UGL: phase.ugl, GLD: phase.gld, BIL: phase.bil };
+
+  // 현재 비중 계산
+  const currentPcts = {};
+  syms.forEach(s => { currentPcts[s] = Math.round(vals[s] / total * 1000) / 10; });
+
+  // 리밸런싱 후 목표 금액 (적립금 포함)
+  const totalWithDCA = total + dca;
+  const targetVals = {};
+  syms.forEach(s => { targetVals[s] = Math.round(totalWithDCA * targets[s] / 100 * 100) / 100; });
+
+  // 차이 (매수/매도 금액)
+  const diffs = {};
+  syms.forEach(s => { diffs[s] = Math.round((targetVals[s] - vals[s]) * 100) / 100; });
+
+  // 결과 렌더링
+  let html = '';
+
+  // 총 자산
+  html += `<div class="calc-total-row"><div class="t-label">현재 총 보유액</div><div class="t-value">${toKRW(total)}</div></div>`;
+  if (dca > 0) {
+    html += `<div class="calc-total-row"><div class="t-label">적립금 포함 총액</div><div class="t-value">${toKRW(totalWithDCA)}</div></div>`;
+  }
+
+  // 현재 비중 vs 목표
+  html += `<div class="calc-result-title">현재 비중 → ${phaseName} 목표 비중</div>`;
+  html += '<div class="calc-holding">';
+  syms.forEach(s => {
+    const cur = currentPcts[s];
+    const tgt = targets[s];
+    const diff = cur - tgt;
+    let cls = '';
+    if (diff > 3) cls = ' over';
+    else if (diff < -3) cls = ' under';
+    html += `<div class="calc-hold-item${cls}">
+      <div class="h-sym" style="color:${s==='UPRO'?'#3182F6':s==='TQQQ'?'#6366f1':s==='TMF'?'#06b6d4':s==='IEF'?'#0891b2':s==='UGL'?'#EAB308':s==='GLD'?'#CA8A04':'#6B6B73'}">${s}</div>
+      <div class="h-pct">${cur.toFixed(1)}%</div>
+      <div class="h-val">목표 ${tgt}%</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 리밸런싱 행동 안내
+  html += '<div class="calc-result-title">리밸런싱 행동 안내</div>';
+  html += '<div class="calc-advice">';
+  html += `<strong>현재 국면: ${phaseName}</strong><br><br>`;
+
+  // 적립금 안내
+  if (dca > 0) {
+    html += `<strong>적립금 ${toKRW(dca)} 투자 방법:</strong><br>`;
+    html += `${phase.dca}<br><br>`;
+    html += `<strong>다음달 첫 거래일 리밸런싱 시 목표 금액:</strong><br>`;
+  } else {
+    html += `<strong>리밸런싱 목표 금액 (총 ${toKRW(totalWithDCA)}):</strong><br>`;
+  }
+
+  syms.forEach(s => {
+    const diff = diffs[s];
+    let action = '';
+    if (Math.abs(diff) < 100) {
+      action = `<span class="act-hold">유지</span>`;
+    } else if (diff > 0) {
+      action = `<span class="act-buy">+${toKRW(diff)} 매수</span>`;
+    } else {
+      action = `<span class="act-sell">-${toKRW(Math.abs(diff))} 매도</span>`;
+    }
+    html += `${s}: ${toKRW(vals[s])} → ${toKRW(targetVals[s])} (${action})<br>`;
+  });
+
+  html += '</div>';
+
+  const resultEl = document.getElementById('calcResult');
+  resultEl.innerHTML = html;
+  resultEl.className = 'calc-result show';
+}
+
+// ===========================
+// Initialize
+// ===========================
+renderAllocTable(0);
+showDetail('bull');
+loadAllData();
+setInterval(loadAllData, 300000);
+</script>
+
+</body>
+</html>
